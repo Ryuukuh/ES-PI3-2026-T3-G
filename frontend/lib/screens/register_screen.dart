@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -28,12 +29,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+          icon: const Icon(Icons.arrow_back, color: AppColors.primary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -49,13 +50,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0D47A1),
+                  color: AppColors.primary,
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
+              const Text(
                 'Cadastre-se para começar a simular seus investimentos.',
-                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 16, color: AppColors.textLight),
               ),
               const SizedBox(height: 32),
               
@@ -64,7 +65,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 controller: _nameController,
                 decoration: const InputDecoration(
                   labelText: 'Nome Completo',
-                  prefixIcon: Icon(Icons.person, color: Color(0xFF0D47A1)),
+                  prefixIcon: Icon(Icons.person, color: AppColors.primary),
                 ),
               ),
               const SizedBox(height: 16),
@@ -75,7 +76,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
                   labelText: 'E-mail',
-                  prefixIcon: Icon(Icons.email, color: Color(0xFF0D47A1)),
+                  prefixIcon: Icon(Icons.email, color: AppColors.primary),
                 ),
               ),
               const SizedBox(height: 16),
@@ -86,7 +87,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(
                   labelText: 'Telefone',
-                  prefixIcon: Icon(Icons.phone, color: Color(0xFF0D47A1)),
+                  prefixIcon: Icon(Icons.phone, color: AppColors.primary),
                 ),
               ),
               const SizedBox(height: 16),
@@ -97,7 +98,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                   labelText: 'CPF',
-                  prefixIcon: Icon(Icons.badge, color: Color(0xFF0D47A1)),
+                  prefixIcon: Icon(Icons.badge, color: AppColors.primary),
                 ),
               ),
               const SizedBox(height: 16),
@@ -108,7 +109,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 obscureText: true,
                 decoration: const InputDecoration(
                   labelText: 'Senha',
-                  prefixIcon: Icon(Icons.lock, color: Color(0xFF0D47A1)),
+                  prefixIcon: Icon(Icons.lock, color: AppColors.primary),
                 ),
               ),
               const SizedBox(height: 32),
@@ -117,11 +118,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ElevatedButton(
                 onPressed: () {
                   if (_formKey.currentState!.validate()) {
-                    // Lógica será conectada na Sprint de Banco de Dados
+                    // Integração futura com banco de dados
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D47A1),
+                  backgroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),

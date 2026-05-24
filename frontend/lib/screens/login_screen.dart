@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,7 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -32,11 +33,10 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Ícone ou Logo Provisório do App
                 const Icon(
                   Icons.trending_up_rounded,
                   size: 80,
-                  color: Color(0xFF0D47A1),
+                  color: AppColors.primary,
                 ),
                 const SizedBox(height: 16),
                 const Text(
@@ -45,14 +45,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0D47A1),
+                    color: AppColors.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'Simulador de Tokenização de Startups',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 16, color: AppColors.textLight),
                 ),
                 const SizedBox(height: 48),
 
@@ -62,8 +62,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
                     labelText: 'E-mail',
-                    prefixIcon: Icon(Icons.email, color: Color(0xFF0D47A1)),
-                  ),
+                    prefixIcon: Icon(Icons.email, color: AppColors.primary),
+                ),
                 ),
                 const SizedBox(height: 16),
 
@@ -73,7 +73,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   obscureText: true,
                   decoration: const InputDecoration(
                     labelText: 'Senha',
-                    prefixIcon: Icon(Icons.lock, color: Color(0xFF0D47A1)),
+                    prefixIcon: Icon(Icons.lock, color: AppColors.primary),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -82,11 +82,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 ElevatedButton(
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
-                      // Lógica de Autenticação será conectada via Firebase Auth
+                      // Integração futura via Firebase Auth
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D47A1),
+                    backgroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -102,11 +102,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Link para ir para a Tela de Cadastro
                 TextButton(
                   onPressed: () {
-                    // Navegação provisória para testes futuros
+                    // Navegação provisória para testes
                   },
                   child: const Text(
                     'Não tem uma conta? Cadastre-se',
-                    style: TextStyle(color: Color(0xFF0D47A1), fontSize: 16),
+                    style: TextStyle(color: AppColors.primary, fontSize: 16),
                   ),
                 ),
               ],
