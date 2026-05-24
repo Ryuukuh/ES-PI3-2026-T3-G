@@ -117,3 +117,17 @@ app.*.symbols
 !**/ios/**/default.perspectivev3
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 !/dev/ci/**/Gemfile.lock
+
+# --- CONFIGURAÇÕES DO BACKEND (NODE) ---
+node_modules/
+dist/
+.env
+
+# --- CONFIGURAÇÕES GERAIS DE IDE ---
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
