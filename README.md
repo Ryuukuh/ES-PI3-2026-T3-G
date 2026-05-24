@@ -4,7 +4,96 @@ Repositório central de desenvolvimento do projeto **MesclaInvest**, aplicativo 
 
 ---
 
-## 🗺️ Mapa Mental de Módulos e Ações do Sistema
+## � Visão Geral do Projeto
+
+Este repositório reúne dois subprojetos:
+
+- `backend/`: serviço Node.js que testa a conexão com o Firebase pelo backend.
+- `frontend/`: aplicativo Flutter para a interface do usuário, com telas de login, cadastro e navegação por startups.
+
+O backend e o frontend estão separados de forma correta para permitir desenvolvimento independente e facilitar deploys distintos.
+
+---
+
+## 🧩 Estrutura do Repositório
+
+- `backend/`
+  - `index.js`: código do servidor Node.js e integração com Firebase.
+  - `package.json`: dependências do backend.
+- `frontend/`
+  - `lib/`: código fonte do app Flutter.
+  - `pubspec.yaml`: dependências do app Flutter.
+  - `firebase_options.dart`: configuração gerada pelo FlutterFire CLI.
+- `planilha_startups_simuladas.xlsx`: base de dados simulada para o catálogo de startups.
+
+---
+
+## 🛠️ Requisitos
+
+- Flutter SDK
+- Dart SDK (vem com Flutter)
+- Node.js + npm
+- Firebase CLI (`flutterfire`), se for modificar a configuração Firebase do frontend
+
+---
+
+## ▶️ Como Executar o Backend
+
+Abra o terminal em `backend/` e execute:
+
+```powershell
+cd backend
+npm install
+node index.js
+```
+
+O backend atual não possui `npm start`, portanto use `node index.js` para iniciar o teste de conexão com Firebase.
+
+---
+
+## ▶️ Como Executar o Frontend
+
+Abra o terminal em `frontend/` e execute:
+
+```powershell
+cd frontend
+flutter pub get
+flutter run
+```
+
+> A execução do Flutter deve ser feita dentro de `frontend/`, pois é ali que está o `pubspec.yaml`.
+
+Se precisar rodar usando um arquivo específico, use:
+
+```powershell
+flutter run -t lib/main.dart
+```
+
+---
+
+## 🔧 Configuração Firebase do Frontend
+
+O frontend usa `firebase_core`, `firebase_auth` e `cloud_firestore`.
+
+A inicialização do Firebase no app deve usar as opções geradas em `lib/firebase_options.dart`:
+
+- `DefaultFirebaseOptions.currentPlatform`
+
+Isso é importante para evitar erros de inicialização no Android, iOS, web ou Windows.
+
+---
+
+## ✅ Status Atual do Projeto
+
+- UI de login e cadastro implementada no Flutter
+- Estrutura de navegação inicial definida
+- Integração de Firebase no frontend planejada e parcialmente configurada
+- Backend Node.js separado e pronto para testar acesso ao Firestore
+- Organização correta de frontend/backend em pastas distintas
+
+---
+
+## �🗺️ Mapa Mental de Módulos e Ações do Sistema
 
 Abaixo está o detalhamento estruturado e ramificado dos módulos do aplicativo, especificando exatamente as ações e interações disponíveis para o usuário em cada camada (Atendimento integral ao Item 2 das orientações da Profa. Renata):
 
