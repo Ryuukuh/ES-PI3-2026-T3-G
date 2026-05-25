@@ -1,7 +1,7 @@
 /**
  * PROJETO INTEGRADOR 3 - MESCLAINVEST
  * Autor Principal: Rafael Elias Correa
- * Componente: Backend - Rota de Cadastro de Usuários via Firestore (Issue #7)
+ * Componente: Backend - Rotas de Cadastro e Login via Firestore (Issue #7 e #8)
  */
 
 const express = require('express');
@@ -12,7 +12,7 @@ const { getFirestore, collection, doc, setDoc, query, where, getDocs } = require
 const app = express();
 app.use(express.json()); // Habilita o servidor a ler JSON no corpo da requisição
 
-// Sua configuração oficial do Firebase (Igual ao print image_b7d62f.png)
+// Sua configuração oficial do Firebase
 const config = {
   apiKey: "AIzaSyA07tMa8LxgGPk4ah83yg4vF7aKUmAlmqU",
   authDomain: "mesclainvest-pi3.firebaseapp.com",
@@ -28,23 +28,17 @@ const firebaseApp = initializeApp(config);
 const db = getFirestore(firebaseApp);
 
 /**
- * ROTA POST: /api/cadastro
- * Objetivo: Validar dados, criptografar senha e salvar o usuário direto no Firestore
+ * ROTA POST: /api/cadastro (Issue #7 - Concluída)
+ * Objetivo: Validar dados, criptografar senha e salvar o usuário no Firestore
  */
 app.post('/api/cadastro', async (req, res) => {
   const { nomeCompleto, email, cpf, telefone, senha } = req.body;
 
-  // Validação de QA: Garante que os campos obrigatórios do PDF estão presentes
   if (!nomeCompleto || !email || !cpf || !telefone || !senha) {
-    return res.status(400).json({ 
-      error: "Campos obrigatórios ausentes. Informe nomeCompleto, email, cpf, telefone e senha." 
-    });
+    return res.status(400).json({ error: "Campos obrigatórios ausentes. Informe nomeCompleto, email, cpf, telefone e senha." });
   }
 
   try {
-    console.log("⏳ Validando se o e-mail já existe no banco...");
-    
-    // 1. Regra de QA: Evita cadastrar o mesmo e-mail duas vezes
     const usuariosRef = collection(db, "users");
     const q = query(usuariosRef, where("email", "==", email));
     const querySnapshot = await getDocs(q);
@@ -53,39 +47,80 @@ app.post('/api/cadastro', async (req, res) => {
       return res.status(400).json({ error: "Este e-mail já está cadastrado no sistema." });
     }
 
-    console.log("🔒 Criptografando a senha do usuário...");
-    // 2. Criptografia da senha com Salt de 10 rounds (Segurança nível produção)
     const saltRounds = 10;
     const senhaCriptografada = await bcrypt.hash(senha, saltRounds);
 
-    // 3. Monta o payload estruturado exatamente como o Documento de Visão exige
     const dadosUsuarioFirestore = {
       nomeCompleto,
       email,
       cpf,
       telefone,
-      senha: senhaCriptografada, // Senha protegida contra vazamentos
+      senha: senhaCriptografada,
       dataCadastro: new Date().toLocaleString("pt-BR"),
-      saldoFicticio: 10000.00,  // Saldo simulado de R$ 10k solicitado pela faculdade
-      tokens: {}                // Carteira de startups zerada
+      saldoFicticio: 10000.00,
+      tokens: {}
     };
 
-    // 4. Cria um ID de documento único baseado no CPF (ou deixa o Firestore gerar um automático se preferir)
-    // Usar o CPF limpo como ID impede duplicidade de conta por pessoa física
     const customUid = cpf.replace(/\D/g, ""); 
-
-    console.log("💾 Gravando registro no Cloud Firestore...");
     await setDoc(doc(db, "users", customUid), dadosUsuarioFirestore);
-
-    console.log(`✅ Registro efetuado! Usuário criado com sucesso no banco.`);
     
-    return res.status(201).json({ 
-      message: "Usuário cadastrado com sucesso!", 
-      uid: customUid 
+    return res.status(201).json({ message: "Usuário cadastrado com sucesso!", uid: customUid });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * ROTA POST: /api/login (Issue #8 - Atual)
+ * Objetivo: Autenticar o usuário comparando o e-mail e o hash da senha no Firestore
+ */
+app.post('/api/login', async (req, res) => {
+  const { email, senha } = req.body;
+
+  // Validação básica de QA
+  if (!email || !senha) {
+    return res.status(400).json({ error: "Campos obrigatórios ausentes. Informe email e senha." });
+  }
+
+  try {
+    console.log(`⏳ Buscando usuário com o e-mail: ${email}`);
+    const usuariosRef = collection(db, "users");
+    const q = query(usuariosRef, where("email", "==", email));
+    const querySnapshot = await getDocs(q);
+
+    // Se a busca voltar vazia, significa que o e-mail não existe no banco
+    if (querySnapshot.empty) {
+      return res.status(401).json({ error: "E-mail ou senha incorretos." });
+    }
+
+    // Como o e-mail é único, pegamos o primeiro documento retornado
+    const usuarioDoc = querySnapshot.docs[0];
+    const dadosUsuario = usuarioDoc.data();
+    const uid = usuarioDoc.id;
+
+    console.log("🔒 Verificando criptografia da senha...");
+    // Compara a senha digitada no Insomnia com o hash seguro do banco
+    const senhaValida = await bcrypt.compare(senha, dadosUsuario.senha);
+
+    if (!senhaValida) {
+      return res.status(401).json({ error: "E-mail ou senha incorretos." });
+    }
+
+    console.log(`✅ [LOGIN SUCESSO] Usuário ${dadosUsuario.nomeCompleto} logado.`);
+
+    // Retorna os dados essenciais para o Flutter gerenciar a sessão localmente
+    return res.status(200).json({
+      message: "Login efetuado com sucesso!",
+      uid: uid,
+      usuario: {
+        nomeCompleto: dadosUsuario.nomeCompleto,
+        email: dadosUsuario.email,
+        saldoFicticio: dadosUsuario.saldoFicticio
+      }
     });
 
   } catch (error) {
-    console.error("❌ Erro ao tentar cadastrar usuário:", error);
+    console.error("❌ Erro no fluxo de login:", error);
     return res.status(500).json({ error: error.message });
   }
 });
