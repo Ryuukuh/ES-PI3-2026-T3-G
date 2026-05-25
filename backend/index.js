@@ -1,15 +1,18 @@
 /**
  * PROJETO INTEGRADOR 3 - MESCLAINVEST
  * Autor Principal: Rafael Elias Correa
- * Componente: Backend - Rotas de Cadastro e Login via Firestore (Issue #7 e #8)
+ * Componente: Backend - Rotas de Cadastro e Login com suporte a CORS (Issue #7 e #8)
  */
 
 const express = require('express');
+const cors = require('cors'); // Habilita requisições vindas do Flutter Web
 const bcrypt = require('bcrypt');
 const { initializeApp } = require("firebase/app");
 const { getFirestore, collection, doc, setDoc, query, where, getDocs } = require("firebase/firestore");
 
 const app = express();
+
+app.use(cors()); // Libera o acesso para o navegador não bloquear o app
 app.use(express.json()); // Habilita o servidor a ler JSON no corpo da requisição
 
 // Sua configuração oficial do Firebase
@@ -29,7 +32,6 @@ const db = getFirestore(firebaseApp);
 
 /**
  * ROTA POST: /api/cadastro (Issue #7 - Concluída)
- * Objetivo: Validar dados, criptografar senha e salvar o usuário no Firestore
  */
 app.post('/api/cadastro', async (req, res) => {
   const { nomeCompleto, email, cpf, telefone, senha } = req.body;
@@ -71,13 +73,11 @@ app.post('/api/cadastro', async (req, res) => {
 });
 
 /**
- * ROTA POST: /api/login (Issue #8 - Atual)
- * Objetivo: Autenticar o usuário comparando o e-mail e o hash da senha no Firestore
+ * ROTA POST: /api/login (Issue #8 - Concluída)
  */
 app.post('/api/login', async (req, res) => {
   const { email, senha } = req.body;
 
-  // Validação básica de QA
   if (!email || !senha) {
     return res.status(400).json({ error: "Campos obrigatórios ausentes. Informe email e senha." });
   }
@@ -88,18 +88,15 @@ app.post('/api/login', async (req, res) => {
     const q = query(usuariosRef, where("email", "==", email));
     const querySnapshot = await getDocs(q);
 
-    // Se a busca voltar vazia, significa que o e-mail não existe no banco
     if (querySnapshot.empty) {
       return res.status(401).json({ error: "E-mail ou senha incorretos." });
     }
 
-    // Como o e-mail é único, pegamos o primeiro documento retornado
     const usuarioDoc = querySnapshot.docs[0];
     const dadosUsuario = usuarioDoc.data();
     const uid = usuarioDoc.id;
 
     console.log("🔒 Verificando criptografia da senha...");
-    // Compara a senha digitada no Insomnia com o hash seguro do banco
     const senhaValida = await bcrypt.compare(senha, dadosUsuario.senha);
 
     if (!senhaValida) {
@@ -108,7 +105,6 @@ app.post('/api/login', async (req, res) => {
 
     console.log(`✅ [LOGIN SUCESSO] Usuário ${dadosUsuario.nomeCompleto} logado.`);
 
-    // Retorna os dados essenciais para o Flutter gerenciar a sessão localmente
     return res.status(200).json({
       message: "Login efetuado com sucesso!",
       uid: uid,

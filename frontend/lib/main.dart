@@ -44,7 +44,46 @@ class MesclaInvestApp extends StatelessWidget {
         useMaterial3: true,
       ),
       // Inicia o fluxo do aplicativo direto pela nossa tela de login refatorada
-      home: const LoginScreen(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const LoginScreen(),
+        '/home': (context) => const PlaceholderHomeScreen(), // Registra a rota que estava faltando!
+        // '/cadastro': (context) => const CadastroScreen(), // Quando tiver a tela de cadastro, descomente aqui
+      },
+    );
+  }
+}
+
+// Tela Provisória para o fluxo de Login funcionar e não quebrar o Navigator
+class PlaceholderHomeScreen extends StatelessWidget {
+  const PlaceholderHomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('MesclaInvest - Dashboard', style: TextStyle(color: Colors.white)),
+        backgroundColor: AppColors.primary,
+        automaticallyImplyLeading: false, // Remove o botão de voltar após o login
+      ),
+      body: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle_outline, size: 100, color: Colors.green),
+            SizedBox(height: 16),
+            Text(
+              'Login efetuado com sucesso!',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'A rota /home respondeu corretamente.',
+              style: TextStyle(fontSize: 16, color: AppColors.textLight),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
