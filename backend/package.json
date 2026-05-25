@@ -10,6 +10,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "bcrypt": "^6.0.0",
+    "express": "^5.2.1",
     "firebase": "^12.13.0"
   }
 }
