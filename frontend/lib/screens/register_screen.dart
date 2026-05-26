@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // IMPORT NECESSÁRIO PARA OS FORMATADORES
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../theme/app_colors.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -15,6 +18,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _phoneController = TextEditingController();
   final _cpfController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -24,6 +28,56 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _cpfController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _cadastrarUsuario() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final url = Uri.parse('http://localhost:3000/api/cadastro');
+
+    try {
+      final resposta = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'nomeCompleto': _nameController.text.trim(),
+          'email': _emailController.text.trim(),
+          'cpf': _cpfController.text.replaceAll(RegExp(r'\D'), ''), 
+          'telefone': _phoneController.text.replaceAll(RegExp(r'\D'), ''), 
+          'senha': _passwordController.text,
+        }),
+      );
+
+      final dados = jsonDecode(resposta.body);
+
+      if (resposta.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Conta criada com sucesso! Faça seu login.'), 
+            backgroundColor: Colors.green
+          ),
+        );
+        Navigator.pop(context); 
+      } else {
+        _mostrarErro(dados['error'] ?? 'Erro ao realizar o cadastro.');
+      }
+    } catch (e) {
+      _mostrarErro('Não foi possível conectar ao servidor backend.');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _mostrarErro(String mensagem) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensagem), backgroundColor: Colors.red),
+    );
   }
 
   @override
@@ -67,6 +121,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   labelText: 'Nome Completo',
                   prefixIcon: Icon(Icons.person, color: AppColors.primary),
                 ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Informe seu nome completo.';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
 
@@ -78,28 +138,64 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   labelText: 'E-mail',
                   prefixIcon: Icon(Icons.email, color: AppColors.primary),
                 ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Informe seu e-mail.';
+                  }
+                  final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                  if (!emailRegex.hasMatch(value.trim())) {
+                    return 'Informe um e-mail válido (exemplo@email.com).';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
 
-              // Campo Telefone
+              // Campo Telefone - Configurado para limitar e aceitar só números
               TextFormField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
+                maxLength: 11, // IMPEDE DIGITAR MAIS DE 11 NÚMEROS
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly], // RECUSA LETRAS E SÍMBOLOS
                 decoration: const InputDecoration(
                   labelText: 'Telefone',
                   prefixIcon: Icon(Icons.phone, color: AppColors.primary),
+                  hintText: 'DDD + Número (ex: 19999999999)',
+                  counterText: '', // Oculta o contador visual feio do Flutter
                 ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Informe seu telefone.';
+                  }
+                  if (value.length < 10) {
+                    return 'Telefone incompleto. Deve conter no mínimo 10 dígitos.';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
 
-              // Campo CPF
+              // Campo CPF - Configurado para limitar e aceitar só números
               TextFormField(
                 controller: _cpfController,
                 keyboardType: TextInputType.number,
+                maxLength: 11, // IMPEDE DIGITAR MAIS DE 11 DÍGITOS
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly], // RECUSA LETRAS E SÍMBOLOS
                 decoration: const InputDecoration(
                   labelText: 'CPF',
                   prefixIcon: Icon(Icons.badge, color: AppColors.primary),
+                  hintText: 'Apenas os 11 números',
+                  counterText: '', // Oculta o contador visual feio do Flutter
                 ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Informe seu CPF.';
+                  }
+                  if (value.length != 11) {
+                    return 'O CPF deve conter exatamente 11 dígitos.';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
 
@@ -111,16 +207,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   labelText: 'Senha',
                   prefixIcon: Icon(Icons.lock, color: AppColors.primary),
                 ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Crie uma senha para sua segurança.';
+                  }
+                  if (value.length < 6) {
+                    return 'A senha deve conter no mínimo 6 caracteres.';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 32),
 
               // Botão Cadastrar
               ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    // Integração futura com banco de dados
-                  }
-                },
+                onPressed: _isLoading ? null : _cadastrarUsuario,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -128,10 +229,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Cadastrar',
-                  style: TextStyle(fontSize: 18, color: Colors.white),
-                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text(
+                        'Cadastrar',
+                        style: TextStyle(fontSize: 18, color: Colors.white),
+                      ),
               ),
             ],
           ),

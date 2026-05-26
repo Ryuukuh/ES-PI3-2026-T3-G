@@ -3,7 +3,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // 1. IMPORT DO FIRESTORE PARA O TESTE
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
-import 'theme/app_colors.dart';
+import 'screens/register_screen.dart'; // INCLUSÃO DO IMPORT DA TELA DE CADASTRO
+import '../theme/app_colors.dart';
 
 void main() async {
   // Garante o vínculo com os recursos nativos do sistema operacional antes de ligar o Firebase
@@ -48,7 +49,7 @@ class MesclaInvestApp extends StatelessWidget {
       routes: {
         '/': (context) => const LoginScreen(),
         '/home': (context) => const PlaceholderHomeScreen(), // Registra a rota que estava faltando!
-        // '/cadastro': (context) => const CadastroScreen(), // Quando tiver a tela de cadastro, descomente aqui
+        '/cadastro': (context) => const RegisterScreen(), // ATIVADO E APONTANDO PARA A CLASSE CORRETA
       },
     );
   }

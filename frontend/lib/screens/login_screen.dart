@@ -169,9 +169,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Link para abrir a Tela de Cadastro (Issue #7)
+                // Link para abrir a Tela de Cadastro (Issue #7/9)
                 TextButton(
                   onPressed: () {
+                    // Direciona o fluxo para a rota mapeada no main.dart
                     Navigator.pushNamed(context, '/cadastro');
                   },
                   child: const Text(
@@ -186,4 +187,4 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-} 
+}
