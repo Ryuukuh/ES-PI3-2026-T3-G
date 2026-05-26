@@ -48,25 +48,33 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (resposta.statusCode == 200) {
         // LOGIN SUCESSO: Mostra a mensagem com o nome vindo do seu backend
+        final usuarioRaw = dados['usuario'] as Map<String, dynamic>;
+        final usuarioData = Map<String, dynamic>.from(usuarioRaw);
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Bem-vindo, ${dados['usuario']['nomeCompleto']}!'), 
-            backgroundColor: Colors.green
+            content: Text('Bem-vindo, ${usuarioData['nomeCompleto']}!'),
+            backgroundColor: Colors.green,
           ),
         );
-        
-        // CORREÇÃO: Extraindo e isolando os dados do mapa do backend de forma segura
-        final usuarioData = dados['usuario'] as Map<String, dynamic>;
-        
-        // Redireciona enviando o nome e o saldo vindos do backend como argumentos para a HomeScreen
+
+        final saldoFicticioValue = usuarioData['saldoFicticio'];
+        final saldoFicticio = saldoFicticioValue is num
+            ? saldoFicticioValue.toDouble()
+            : double.tryParse(saldoFicticioValue?.toString() ?? '0.0') ?? 0.0;
+
         Navigator.pushReplacementNamed(
-          context, 
+          context,
           '/home',
           arguments: {
-            'nomeCompleto': usuarioData['nomeCompleto'].toString(),
-            'saldoFicticio': double.parse(usuarioData['saldoFicticio'].toString()),
+            'nomeCompleto': usuarioData['nomeCompleto']?.toString() ?? 'Investidor',
+            'email': usuarioData['email']?.toString() ?? '',
+            'cpf': usuarioData['cpf']?.toString() ?? '',
+            'telefone': usuarioData['telefone']?.toString() ?? '',
+            'saldoFicticio': saldoFicticio,
+            'tokens': usuarioData['tokens'] ?? {},
           },
-        ); 
+        );
       } else {
         // ERRO DE AUTENTICAÇÃO: Mostra o erro retornado pelo backend
         _mostrarErro(dados['error'] ?? 'Erro ao efetuar login.');

@@ -15,6 +15,15 @@ const app = express();
 app.use(cors()); // Libera o acesso para o navegador não bloquear o app
 app.use(express.json()); // Habilita o servidor a ler JSON no corpo da requisição
 
+// Log de todas as requisições para facilitar monitoramento
+app.use((req, res, next) => {
+  console.log(`📥 [${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  if (req.method !== 'GET') {
+    console.log('     Payload:', JSON.stringify(req.body));
+  }
+  next();
+});
+
 // Sua configuração oficial do Firebase
 const config = {
   apiKey: "AIzaSyA07tMa8LxgGPk4ah83yg4vF7aKUmAlmqU",
@@ -111,7 +120,10 @@ app.post('/api/login', async (req, res) => {
       usuario: {
         nomeCompleto: dadosUsuario.nomeCompleto,
         email: dadosUsuario.email,
-        saldoFicticio: dadosUsuario.saldoFicticio
+        cpf: dadosUsuario.cpf,
+        telefone: dadosUsuario.telefone,
+        saldoFicticio: dadosUsuario.saldoFicticio,
+        tokens: dadosUsuario.tokens || {}
       }
     });
 
@@ -149,5 +161,10 @@ app.get('/api/startups', async (req, res) => {
 // Inicialização do servidor local na porta 3000
 const PORT = 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 API do MesclaInvest rodando em http://localhost:${PORT}`);
+  console.log('============================================');
+  console.log('🚀 API do MesclaInvest iniciada com sucesso!');
+  console.log('🌐 Endereço: http://localhost:' + PORT);
+  console.log('⏳ Status: aguardando requisições...');
+  console.log('Pressione Ctrl+C para parar o servidor.');
+  console.log('============================================');
 });
