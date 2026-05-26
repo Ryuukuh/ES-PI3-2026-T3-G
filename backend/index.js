@@ -1,7 +1,7 @@
 /**
  * PROJETO INTEGRADOR 3 - MESCLAINVEST
  * Autor Principal: Rafael Elias Correa
- * Componente: Backend - Rotas de Cadastro e Login com suporte a CORS (Issue #7 e #8)
+ * Componente: Backend - Rotas de Cadastro, Login e Listagem de Startups (Issue #7, #8 e #11)
  */
 
 const express = require('express');
@@ -118,6 +118,31 @@ app.post('/api/login', async (req, res) => {
   } catch (error) {
     console.error("❌ Erro no fluxo de login:", error);
     return res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * ROTA GET: /api/startups (Issue #11 - Rota de Listagem Direta do Firestore)
+ * Consome os dados reais salvos na nuvem sem nenhuma informação estática no código.
+ */
+app.get('/api/startups', async (req, res) => {
+  try {
+    console.log("⏳ Consultando catálogo de startups direto do Firestore...");
+    const startupsRef = collection(db, "startups");
+    const querySnapshot = await getDocs(startupsRef);
+
+    // Mapeia os documentos que já existem fisicamente no banco de dados
+    const listaStartups = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    console.log(`✅ [SUCESSO] ${listaStartups.length} startups oficiais carregadas da nuvem.`);
+    return res.status(200).json(listaStartups);
+
+  } catch (error) {
+    console.error("❌ Erro ao listar startups:", error);
+    return res.status(500).json({ error: "Erro interno ao consultar catálogo no banco de dados." });
   }
 });
 
