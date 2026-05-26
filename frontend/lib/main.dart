@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // 1. IMPORT DO FIRESTORE PARA O TESTE
+import 'package:cloud_firestore/cloud_firestore.dart'; // IMPORT DO FIRESTORE PARA O TESTE MANTIDO
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
-import 'screens/register_screen.dart'; // INCLUSÃO DO IMPORT DA TELA DE CADASTRO
+import 'screens/register_screen.dart'; // IMPORT DA TELA DE CADASTRO MANTIDO
+import 'screens/home_screen.dart';     // IMPORT DA TELA HOME REAL ATIVADO
 import '../theme/app_colors.dart';
 
 void main() async {
@@ -15,7 +16,7 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
-  // 🔥 2. CÓDIGO DE TESTE TEMPORÁRIO
+  // 🔥 CÓDIGO DE TESTE TEMPORÁRIO MANTIDO
   // Isso vai tentar criar uma coleção chamada 'teste_conexao' e salvar um documento lá dentro
   try {
     await FirebaseFirestore.instance.collection('teste_conexao').add({
@@ -48,39 +49,41 @@ class MesclaInvestApp extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => const LoginScreen(),
-        '/home': (context) => const PlaceholderHomeScreen(), // Registra a rota que estava faltando!
-        '/cadastro': (context) => const RegisterScreen(), // ATIVADO E APONTANDO PARA A CLASSE CORRETA
+        '/home': (context) => const HomeScreen(), // Apontando para a Home real com o Dashboard azul
+        '/cadastro': (context) => const RegisterScreen(), // Apontando para a classe correta de cadastro
+        
+        // 🚀 NOVA ROTA ATIVADA: Evita que o botão "Explorar Mercado" fique sem ação
+        '/catalogo': (context) => const PlaceholderCatalogo(), 
       },
     );
   }
 }
 
-// Tela Provisória para o fluxo de Login funcionar e não quebrar o Navigator
-class PlaceholderHomeScreen extends StatelessWidget {
-  const PlaceholderHomeScreen({super.key});
+// Tela provisória para o botão "Explorar Mercado" navegar sem dar erro de rota
+class PlaceholderCatalogo extends StatelessWidget {
+  const PlaceholderCatalogo({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MesclaInvest - Dashboard', style: TextStyle(color: Colors.white)),
-        backgroundColor: AppColors.primary,
-        automaticallyImplyLeading: false, // Remove o botão de voltar após o login
+        title: const Text('Catálogo de Startups', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.indigo[900],
       ),
       body: const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.check_circle_outline, size: 100, color: Colors.green),
+            Icon(Icons.business, size: 80, color: Colors.indigo),
             SizedBox(height: 16),
             Text(
-              'Login efetuado com sucesso!',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary),
+              'Sucesso! O clique funcionou.',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.indigo),
             ),
             SizedBox(height: 8),
             Text(
-              'A rota /home respondeu corretamente.',
-              style: TextStyle(fontSize: 16, color: AppColors.textLight),
+              'A tela do Catálogo (Issue #12) será desenvolvida aqui.',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
           ],
         ),

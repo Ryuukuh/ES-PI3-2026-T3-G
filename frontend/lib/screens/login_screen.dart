@@ -55,8 +55,18 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
         
-        // Redireciona usando a rota nomeada que ativamos no main.dart
-        Navigator.pushReplacementNamed(context, '/home'); 
+        // CORREÇÃO: Extraindo e isolando os dados do mapa do backend de forma segura
+        final usuarioData = dados['usuario'] as Map<String, dynamic>;
+        
+        // Redireciona enviando o nome e o saldo vindos do backend como argumentos para a HomeScreen
+        Navigator.pushReplacementNamed(
+          context, 
+          '/home',
+          arguments: {
+            'nomeCompleto': usuarioData['nomeCompleto'].toString(),
+            'saldoFicticio': double.parse(usuarioData['saldoFicticio'].toString()),
+          },
+        ); 
       } else {
         // ERRO DE AUTENTICAÇÃO: Mostra o erro retornado pelo backend
         _mostrarErro(dados['error'] ?? 'Erro ao efetuar login.');
@@ -172,7 +182,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Link para abrir a Tela de Cadastro (Issue #7/9)
                 TextButton(
                   onPressed: () {
-                    // Direciona o fluxo para a rota mapeada no main.dart
                     Navigator.pushNamed(context, '/cadastro');
                   },
                   child: const Text(
