@@ -8,6 +8,8 @@ import 'screens/catalog_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/portfolio_screen.dart';
 import 'screens/startup_details_screen.dart';
+import 'screens/splash_screen.dart';
+import 'screens/forgot_password_screen.dart';
 import 'theme/app_colors.dart';
 
 void main() async {
@@ -33,16 +35,16 @@ class MesclaInvestApp extends StatelessWidget {
         primaryColor: AppColors.primary,
         useMaterial3: true,
       ),
-      // Inicia o fluxo do aplicativo direto pela nossa tela de login refatorada
-      initialRoute: '/',
+      home: const SplashScreen(),
       routes: {
-        '/': (context) => const LoginScreen(),
+        '/login': (context) => const LoginScreen(),
         '/home': (context) => const HomeScreen(),
         '/cadastro': (context) => const RegisterScreen(),
         '/catalogo': (context) => const CatalogScreen(),
         '/perfil': (context) => const ProfileScreen(),
         '/carteira': (context) => const PortfolioScreen(),
         '/startup-detalhes': (context) => const StartupDetailsScreen(),
+        '/esqueci-senha': (context) => const ForgotPasswordScreen(),
       },
     );
   }

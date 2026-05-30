@@ -3,20 +3,28 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class CatalogScreen extends StatefulWidget {
-  const CatalogScreen({Key? key}) : super(key: key);
+  const CatalogScreen({super.key});
 
   @override
   State<CatalogScreen> createState() => _CatalogScreenState();
 }
 
 class _CatalogScreenState extends State<CatalogScreen> {
+  Map<String, dynamic> _userData = {
+    'uid': '',
+    'nomeCompleto': 'Investidor',
+    'email': 'E-mail não informado',
+    'cpf': 'CPF não informado',
+    'telefone': 'Telefone não informado',
+    'saldoFicticio': 0.0,
+    'tokens': {},
+  };
   List<dynamic> _allStartups = [];
   List<dynamic> _filteredStartups = [];
   bool _isLoading = true;
   String _errorMessage = '';
   String _selectedStage = 'Todos';
-
-  // Lista de estágios exibida nos botões
+  String _selectedSector = 'Todos';
   final List<String> _stages = [
     'Todos',
     'Ideação',
@@ -24,11 +32,18 @@ class _CatalogScreenState extends State<CatalogScreen> {
     'Operação',
     'Tração',
   ];
+  List<String> _sectors = ['Todos'];
 
   @override
-  void initState() {
-    super.initState();
-    _fetchStartups();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final argumentos = ModalRoute.of(context)?.settings.arguments;
+    if (argumentos is Map) {
+      _userData = {
+        ..._userData,
+        ...Map<String, dynamic>.from(argumentos),
+      };
+    }
   }
 
   String _getFirstNonEmptyField(
@@ -103,9 +118,19 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        final startups = data ?? [];
+        final sectors = <String>{'Todos'};
+        for (final item in startups) {
+          final sector = _getFirstNonEmptyField(item, ['setor', 'area', 'segmento'], '');
+          if (sector.isNotEmpty) {
+            sectors.add(sector);
+          }
+        }
+
         setState(() {
-          _allStartups = data ?? [];
-          _filteredStartups = data ?? [];
+          _allStartups = startups;
+          _filteredStartups = startups;
+          _sectors = sectors.toList()..sort();
           _isLoading = false;
         });
       } else {
@@ -122,6 +147,16 @@ class _CatalogScreenState extends State<CatalogScreen> {
     }
   }
 
+  String _displayStage(String raw) {
+    const map = {
+      'ideacao': 'Ideação',
+      'validacao': 'Validação',
+      'operacao': 'Operação',
+      'tracao': 'Tração',
+    };
+    return map[raw.toLowerCase().trim()] ?? raw;
+  }
+
   String _normalizeText(String text) {
     var str = text.toLowerCase().trim();
     str = str.replaceAll(RegExp(r'[àáâãäå]'), 'a');
@@ -133,26 +168,39 @@ class _CatalogScreenState extends State<CatalogScreen> {
     return str;
   }
 
-  void _filterStartups(String stage) {
+  void _filterStartups({String? stage, String? sector}) {
+    if (stage != null) _selectedStage = stage;
+    if (sector != null) _selectedSector = sector;
+
     setState(() {
-      _selectedStage = stage;
-      if (stage == 'Todos') {
-        _filteredStartups = _allStartups;
-      } else {
-        final normalizedFilter = _normalizeText(stage);
-        _filteredStartups = _allStartups.where((startup) {
-          final startupStage = _normalizeText(
-            _getFirstNonEmptyField(startup, ['estagio', 'fase', 'stage'], ''),
-          );
-          return startupStage == normalizedFilter;
-        }).toList();
-      }
+      _filteredStartups = _allStartups.where((startup) {
+        final startupStage = _normalizeText(
+          _getFirstNonEmptyField(startup, ['estagio', 'fase', 'stage'], ''),
+        );
+        final startupSector = _normalizeText(
+          _getFirstNonEmptyField(startup, ['setor', 'area', 'segmento'], ''),
+        );
+        final stageMatch = _selectedStage == 'Todos' || startupStage == _normalizeText(_selectedStage);
+        final sectorMatch = _selectedSector == 'Todos' || startupSector == _normalizeText(_selectedSector);
+        return stageMatch && sectorMatch;
+      }).toList();
     });
   }
 
   @override
+  void initState() {
+    super.initState();
+    _fetchStartups();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) Navigator.pop(context, _userData);
+      },
+      child: Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: const Text(
@@ -165,203 +213,239 @@ class _CatalogScreenState extends State<CatalogScreen> {
       ),
       body: Column(
         children: [
-          // 1. Barra Horizontal de Filtros por Estágio
           Container(
             color: Colors.white,
-            height: 60,
-            width: double.infinity,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              itemCount: _stages.length,
-              itemBuilder: (context, index) {
-                final stage = _stages[index];
-                final isSelected = _selectedStage == stage;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: ChoiceChip(
-                    label: Text(stage),
-                    selected: isSelected,
-                    selectedColor: Colors.indigo[900],
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : Colors.black87,
-                      fontWeight: isSelected
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                    ),
-                    onSelected: (_) => _filterStartups(stage),
-                  ),
-                );
-              },
-            ),
-          ),
-
-          // 2. Área de Exibição dos Cards das Startups
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _errorMessage.isNotEmpty
-                ? Center(
-                    child: Text(
-                      _errorMessage,
-                      style: const TextStyle(color: Colors.red, fontSize: 16),
-                    ),
-                  )
-                : _filteredStartups.isEmpty
-                ? Center(
-                    child: Text(
-                      'Nenhuma startup encontrada para: $_selectedStage',
-                      style: const TextStyle(color: Colors.grey, fontSize: 16),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _filteredStartups.length,
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: Text('Estágio', style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600)),
+                ),
+                SizedBox(
+                  height: 44,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: _stages.length,
                     itemBuilder: (context, index) {
-                      final startup = _filteredStartups[index];
-
-                      final startupName = _getFirstNonEmptyField(startup, [
-                        'nome',
-                        'nome_startup',
-                        'nomeStartup',
-                        'startupNome',
-                        'name',
-                        'titulo',
-                        'startup',
-                      ], 'Startup Sem Nome');
-
-                      final stageDisplay = _getFirstNonEmptyField(startup, [
-                        'estagio',
-                        'fase',
-                        'stage',
-                      ], 'Estágio Desconhecido').toUpperCase();
-
-                      final description = _getFirstNonEmptyField(startup, [
-                        'descricao',
-                        'description',
-                        'resumo',
-                        'sobre',
-                      ], 'Sem descrição disponível.');
-
-                      final tokenValue = _getTokenPrice(startup);
-
-                      return Card(
-                        elevation: 3,
-                        margin: const EdgeInsets.only(bottom: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: InkWell(
-                          onTap: () {
-                            Navigator.pushNamed(
-                              context,
-                              '/startup-detalhes',
-                              arguments: startup,
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(16),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Cabeçalho do card com nome e estágio
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        startupName,
-                                        style: const TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.indigo,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.blue[50],
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(color: Colors.blue),
-                                      ),
-                                      child: Text(
-                                        stageDisplay,
-                                        style: TextStyle(
-                                          color: Colors.blue[800],
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-
-                                Text(
-                                  description,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.grey[700],
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                const Divider(),
-                                const SizedBox(height: 8),
-
-                                // Exibe o valor do token
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Valor do Token',
-                                          style: TextStyle(
-                                            color: Colors.grey,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          tokenValue > 0
-                                              ? 'R\$ ${tokenValue.toStringAsFixed(2).replaceAll('.', ',')}'
-                                              : 'Não disponível',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const Icon(
-                                      Icons.arrow_forward_ios,
-                                      size: 16,
-                                      color: Colors.grey,
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
+                      final stage = _stages[index];
+                      final isSelected = _selectedStage == stage;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(stage, style: const TextStyle(fontSize: 13)),
+                          selected: isSelected,
+                          selectedColor: Colors.indigo[900],
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : Colors.black87,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                           ),
+                          onSelected: (_) => _filterStartups(stage: stage),
                         ),
                       );
                     },
                   ),
+                ),
+                if (_sectors.length > 1) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                    child: Text('Setor', style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600)),
+                  ),
+                  SizedBox(
+                    height: 44,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: _sectors.length,
+                      itemBuilder: (context, index) {
+                        final sector = _sectors[index];
+                        final isSelected = _selectedSector == sector;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(sector, style: const TextStyle(fontSize: 13)),
+                            selected: isSelected,
+                            selectedColor: Colors.indigo[900],
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : Colors.black87,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                            onSelected: (_) => _filterStartups(sector: sector),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _errorMessage.isNotEmpty
+                    ? Center(
+                        child: Text(
+                          _errorMessage,
+                          style: const TextStyle(color: Colors.red, fontSize: 16),
+                        ),
+                      )
+                    : _filteredStartups.isEmpty
+                        ? Center(
+                            child: Text(
+                              'Nenhuma startup encontrada para: $_selectedStage / $_selectedSector',
+                              style: const TextStyle(color: Colors.grey, fontSize: 16),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: _filteredStartups.length,
+                            itemBuilder: (context, index) {
+                              final startup = _filteredStartups[index];
+
+                              final startupName = _getFirstNonEmptyField(startup, [
+                                'nome',
+                                'nome_startup',
+                                'nomeStartup',
+                                'startupNome',
+                                'name',
+                                'titulo',
+                                'startup',
+                              ], 'Startup Sem Nome');
+
+                              final stageDisplay = _displayStage(
+                                _getFirstNonEmptyField(startup, ['estagio', 'fase', 'stage'], ''),
+                              ).toUpperCase();
+
+                              final description = _getFirstNonEmptyField(startup, [
+                                'descricao',
+                                'description',
+                                'resumo',
+                                'sobre',
+                              ], 'Sem descrição disponível.');
+
+                              final tokenValue = _getTokenPrice(startup);
+
+                              return Card(
+                                elevation: 3,
+                                margin: const EdgeInsets.only(bottom: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: InkWell(
+                                  onTap: () async {
+                                    final result = await Navigator.pushNamed(
+                                      context,
+                                      '/startup-detalhes',
+                                      arguments: {
+                                        'startup': startup,
+                                        'user': _userData,
+                                      },
+                                    );
+                                    if (result is Map<String, dynamic> && result['user'] is Map<String, dynamic>) {
+                                      _userData = Map<String, dynamic>.from(result['user']);
+                                      setState(() {});
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                startupName,
+                                                style: const TextStyle(
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.indigo,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 4,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.blue[50],
+                                                borderRadius: BorderRadius.circular(20),
+                                                border: Border.all(color: Colors.blue),
+                                              ),
+                                              child: Text(
+                                                stageDisplay,
+                                                style: TextStyle(
+                                                  color: Colors.blue[800],
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          description,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: Colors.grey[700],
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        const Divider(),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                const Text(
+                                                  'Valor do Token',
+                                                  style: TextStyle(
+                                                    color: Colors.grey,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  tokenValue > 0
+                                                      ? 'R\$ ${tokenValue.toStringAsFixed(2).replaceAll('.', ',')}'
+                                                      : 'Não disponível',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 15,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const Icon(
+                                              Icons.arrow_forward_ios,
+                                              size: 16,
+                                              color: Colors.grey,
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
           ),
         ],
+      ),
       ),
     );
   }

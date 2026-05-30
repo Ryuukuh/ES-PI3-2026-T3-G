@@ -55,6 +55,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final dados = jsonDecode(resposta.body);
 
       if (resposta.statusCode == 201) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Conta criada com sucesso! Faça seu login.'), 
@@ -63,6 +64,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
         Navigator.pop(context); 
       } else {
+        if (!mounted) return;
         _mostrarErro(dados['error'] ?? 'Erro ao realizar o cadastro.');
       }
     } catch (e) {
@@ -75,6 +77,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _mostrarErro(String mensagem) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(mensagem), backgroundColor: Colors.red),
     );

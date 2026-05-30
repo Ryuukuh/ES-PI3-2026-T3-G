@@ -44,10 +44,10 @@ Abra o terminal em `backend/` e execute:
 ```powershell
 cd backend
 npm install
-node index.js
+npm start
 ```
 
-O backend atual não possui `npm start`, portanto use `node index.js` para iniciar o teste de conexão com Firebase.
+O backend oferece o script `npm start`, que roda `node index.js`. Se preferir, também é possível iniciar diretamente com `node index.js`.
 
 ---
 
@@ -85,11 +85,27 @@ Isso é importante para evitar erros de inicialização no Android, iOS, web ou 
 
 ## ✅ Status Atual do Projeto
 
-- UI de login e cadastro implementada no Flutter
-- Estrutura de navegação inicial definida
-- Integração de Firebase no frontend planejada e parcialmente configurada
-- Backend Node.js separado e pronto para testar acesso ao Firestore
-- Organização correta de frontend/backend em pastas distintas
+- Tela de login e cadastro implementadas no Flutter
+- Navegação entre `/`, `/home`, `/cadastro`, `/catalogo`, `/perfil`, `/carteira` e `/startup-detalhes` funcionando
+- `HomeScreen` agora exibe cards de startups em destaque e acesso ao catálogo completo
+- `CatalogScreen` lista startups dinamicamente e aplica filtros por estágio e setor
+- `StartupDetailsScreen` mostra dados detalhados, pitch e simulador de aporte com validações de saldo
+- `PortfolioScreen` exibe carteira, histórico de aportes e permite refresh de usuário via backend
+- `ProfileScreen` exibe dados do usuário e saldo fictício, com botão de logout
+- Backend Node.js oferece rotas REST: `/api/cadastro`, `/api/login`, `/api/startups`, `/api/aporte`, `/api/usuario/:uid`
+- Firebase está inicializado no frontend via `firebase_options.dart`, mas o app atual consome dados do backend HTTP em vez de acessar o Firestore direto do cliente
+- Backend organizado em `backend/` e frontend em `frontend/`
+
+## ⚠️ Checklist de implementação conforme o documento
+
+- [x] Edição de perfil / atualização de dados do usuário no app e backend — **Concluído**
+- [x] Confirmação de logout no fluxo de perfil — **Concluído**
+- [x] Login persistente / sessão salva entre execuções do app — **Concluído**
+- [x] Vendas ou retirada de tokens do portfólio — **Concluído**
+- [x] Gráficos de desempenho, indicadores de alocação e evolução de carteira — **Concluído**
+- [~] Sincronização mais robusta de estado entre telas — **Parcial** (estado sincronizado via argumentos de rota + sessão local, sem state manager global)
+- [ ] Uso direto de Firebase Auth / Firestore no frontend — **Falta** (o app atual inicializa `firebase_core`, mas não usa `firebase_auth` nem `cloud_firestore` para fluxo direto)
+- [ ] Testes automatizados no backend e frontend — **Falta**
 
 ---
 
@@ -100,34 +116,43 @@ Abaixo está o detalhamento estruturado e ramificado dos módulos do aplicativo,
 ### 🔐 1. Módulo: Autenticação & Perfil
 * **Criar Conta (Sign Up):**
     * Formulário com validação de dados obrigatórios (*Nome Completo, E-mail, Telefone, CPF e Senha*).
+    * Status: implementado no `frontend/lib/screens/register_screen.dart` e no backend `/api/cadastro`.
 * **Efetuar Login (Sign In):**
     * Autenticação por credenciais para acesso seguro do investidor simulado.
+    * Status: implementado no `frontend/lib/screens/login_screen.dart` e no backend `/api/login`.
 * **Gerenciar Perfil:**
     * Visualização de informações cadastrais básicas.
     * Consulta ao saldo fictício inicial em carteira disponível para realizar os aportes nas startups do catálogo.
+    * Status: a visualização está implementada em `frontend/lib/screens/profile_screen.dart`, mas não há edição de perfil nem persistência de sessão.
 
 ### 🏢 2. Módulo: Catálogo de Startups (Base de Dados)
 * **Listar Startups:**
     * Exibição dinâmica das empresas parceiras através de cards com informações resumidas na home.
     * Filtros avançados para refinamento da busca por *Estágio de Maturação* (Ideação, Validação, Operação, Tração) e *Setor de Atuação* (Fintech, Edtech, Agrotech, Cleantech, etc.).
+    * Status: implementado em `frontend/lib/screens/catalog_screen.dart` e com cards destacados na home (`frontend/lib/screens/home_screen.dart`).
 * **Visualizar Detalhes da Startup:**
     * Acesso à descrição completa da tese de mercado da empresa.
     * Consulta de dados transparentes de governança (*Sócios Fundadores* e *Mentores/Corpo Técnico de Conselho*).
     * Visualização completa do histórico financeiro simulado (*Capital já aportado acumulado* e *Volume total de tokens emitidos*).
+    * Status: implementado em `frontend/lib/screens/startup_details_screen.dart`.
 * **Assistir Pitch:**
     * Redirecionamento ou acesso direto ao link do vídeo demonstrativo/pitch de vendas da startup selecionada.
+    * Status: implementado no botão "Assistir Pitch" em `startup_details_screen.dart`.
 
 ### 📊 3. Módulo: Simulador de Investimentos (Aportes)
 * **Simular Aporte Financeiro:**
     * Campo de inserção de valor monetário simulado (R$) destinado à startup desejada.
-    * Validação em tempo real para impedir aportes maiores do que o saldo atual da carteira.
+    * Validação em tempo real para impedir aportes maiores do que o saldo atual da carteira. 
+    * Status: implementado em `frontend/lib/screens/startup_details_screen.dart`.
 * **Calcular Proporcionalidade de Ativos:**
     * Processamento síncrono da quantidade estimada de tokens que o usuário receberá com base no valor aportado e na participação societária correspondente.
+    * Status: implementado com cálculo de tokens em `startup_details_screen.dart`.
 * **Confirmar Transação Fictícia:**
     * Processo de débito automático do valor investido no saldo geral da carteira virtual do usuário.
     * Atualização imediata e inclusão automática da startup no portfólio pessoal de ativos simulados do investidor.
+    * Status: implementado via `POST /api/aporte` no backend e atualização de usuário na tela de detalhes.
 
----
+--- 
 
 ## 📂 Estrutura de Arquivos de Dados do Repositório
 
