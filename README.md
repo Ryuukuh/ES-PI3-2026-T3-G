@@ -1,39 +1,48 @@
 # ES-PI3-2026-T3-G — MesclaInvest
 
-Repositório central de desenvolvimento do projeto **MesclaInvest**, aplicativo mobile de simulação de investimentos em startups utilizando conceitos de tokenização de ativos. Projeto desenvolvido para a disciplina de **Projeto Integrador 3** do curso de **Engenharia de Software** da **PUC-Campinas**.
+Repositório central de desenvolvimento do **MesclaInvest**, aplicativo mobile de simulação de investimentos em startups com tokenização de ativos. Desenvolvido para a disciplina de **Projeto Integrador 3** do curso de **Engenharia de Software** da **PUC-Campinas**, 2026.
 
 ---
 
-## � Visão Geral do Projeto
+## 🎯 Visão Geral do Projeto
 
-Este repositório reúne dois subprojetos:
+O MesclaInvest simula um ecossistema digital de investimentos baseado na negociação de tokens representativos de startups vinculadas ao **Mescla** — o ecossistema de inovação da PUC-Campinas.
 
-- `backend/`: serviço Node.js que testa a conexão com o Firebase pelo backend.
-- `frontend/`: aplicativo Flutter para a interface do usuário, com telas de login, cadastro e navegação por startups.
+O aplicativo permite que o usuário cadastre-se, visualize startups, simule aportes financeiros em tokens, acompanhe a valorização de sua carteira com gráficos interativos e gerencie sua conta com segurança (MFA/2FA e recuperação de senha por e-mail).
 
-O backend e o frontend estão separados de forma correta para permitir desenvolvimento independente e facilitar deploys distintos.
+Todas as operações de negociação têm caráter exclusivamente simulado, sem envolvimento de ativos reais.
 
 ---
 
 ## 🧩 Estrutura do Repositório
 
 - `backend/`
-  - `index.js`: código do servidor Node.js e integração com Firebase.
-  - `package.json`: dependências do backend.
+  - `index.js` — servidor Node.js com todas as rotas REST e integração com Firebase Firestore
+  - `package.json` — dependências do backend
+  - `.env` — variáveis de ambiente (não versionado — contém credenciais Firebase e Gmail)
 - `frontend/`
-  - `lib/`: código fonte do app Flutter.
-  - `pubspec.yaml`: dependências do app Flutter.
-  - `firebase_options.dart`: configuração gerada pelo FlutterFire CLI.
-- `planilha_startups_simuladas.xlsx`: base de dados simulada para o catálogo de startups.
+  - `lib/screens/` — telas do aplicativo Flutter
+  - `lib/services/` — serviços auxiliares (SessionService)
+  - `lib/theme/` — paleta de cores e tema visual
+  - `pubspec.yaml` — dependências do app Flutter
+  - `lib/firebase_options.dart` — configuração gerada pelo FlutterFire CLI
+- `planilha_startups_simuladas.xlsx` — base de dados simulada com 8 startups para o catálogo
 
 ---
 
-## 🛠️ Requisitos
+## 🛠️ Tecnologias Utilizadas
 
-- Flutter SDK
-- Dart SDK (vem com Flutter)
-- Node.js + npm
-- Firebase CLI (`flutterfire`), se for modificar a configuração Firebase do frontend
+| Camada | Tecnologia |
+|--------|-----------|
+| Mobile (Frontend) | Flutter 3.x / Dart |
+| Backend | Node.js LTS + Express / JavaScript |
+| Banco de Dados | Firebase Firestore (banco não relacional) |
+| Segurança de Senhas | bcrypt |
+| E-mail (MFA + recuperação de senha) | Nodemailer + Gmail SMTP |
+| Sessão Local | shared_preferences |
+| Gráficos | fl_chart 1.2.0 |
+| Controle de Versão | Git + GitHub |
+| IDE | Visual Studio Code |
 
 ---
 
@@ -47,7 +56,7 @@ npm install
 npm start
 ```
 
-O backend oferece o script `npm start`, que roda `node index.js`. Se preferir, também é possível iniciar diretamente com `node index.js`.
+O servidor inicia em `http://localhost:3000`. Antes de iniciar, certifique-se de que o arquivo `.env` está configurado com as credenciais do Firebase e Gmail.
 
 ---
 
@@ -61,105 +70,175 @@ flutter pub get
 flutter run
 ```
 
-> A execução do Flutter deve ser feita dentro de `frontend/`, pois é ali que está o `pubspec.yaml`.
-
-Se precisar rodar usando um arquivo específico, use:
-
-```powershell
-flutter run -t lib/main.dart
-```
+> A execução do Flutter deve ser feita dentro de `frontend/`, onde está o `pubspec.yaml`.
 
 ---
 
-## 🔧 Configuração Firebase do Frontend
+## ✅ Status de Implementação dos Requisitos
 
-O frontend usa `firebase_core`, `firebase_auth` e `cloud_firestore`.
+*(Conforme Documento de Visão — Seção 5)*
 
-A inicialização do Firebase no app deve usar as opções geradas em `lib/firebase_options.dart`:
+### 5.1 — Autenticação
 
-- `DefaultFirebaseOptions.currentPlatform`
+- [x] Cadastro com Nome completo, E-mail, CPF, Telefone celular e Senha
+- [x] Validação de todos os campos no formulário de cadastro
+- [x] Login por e-mail e senha
+- [x] Sessão persistente — verificada automaticamente na abertura do app (`SplashScreen`)
+- [x] Sem acesso anônimo à plataforma
+- [x] Recuperação de senha ("Esqueci minha senha") com código enviado por e-mail
 
-Isso é importante para evitar erros de inicialização no Android, iOS, web ou Windows.
+### 5.2 — Catálogo de Startups
+
+- [x] Listagem dinâmica de startups via API (`GET /api/startups`)
+- [x] Filtros por estágio de desenvolvimento (Ideação, Validação, Operação, Tração)
+- [x] Filtros por setor de atuação
+- [x] Visualização de descrição / sumário executivo
+- [x] Estrutura societária e sócios fundadores com participação percentual
+- [x] Volume de capital já aportado (simulado) e total de tokens emitidos
+- [x] Membros do conselho e mentores
+- [x] Vídeo de pitch (link externo com redirecionamento)
+- [x] Perguntas e respostas públicas na página da startup (coleção `perguntas` no Firestore; respostas gerenciadas pelo administrador)
+ 
+### 5.3 — Compra e Venda de Tokens — Balcão
+ 
+- [x] Depósito de saldo fictício em reais (`POST /api/depositar`)
+- [x] Simulação de aporte diretamente na página da startup (`POST /api/aporte`)
+- [x] Cálculo proporcional de tokens com base no valor aportado e preço unitário
+- [x] Confirmação de aporte com débito automático de saldo e atualização imediata
+- [x] Venda de tokens com crédito automático de saldo (`POST /api/venda`)
+- [x] Histórico de aportes e vendas registrado no Firestore
+- [x] Transações restritas a usuários cadastrados na plataforma
+
+### 5.4 — Acompanhamento da Valorização dos Tokens
+
+- [x] Painel gráfico de valorização na tela de Carteira
+- [x] Período Diário (24h) com rótulos por hora
+- [x] Período Semanal (7 dias) com rótulos por dia da semana
+- [x] Período Mensal (30 dias) com rótulos por dia
+- [x] Período Últimos 6 meses (26 semanas) com rótulos por mês
+- [x] Período YTD / Anual com rótulos por mês
+- [x] Tooltip interativo com valor em R$ ao toque/hover
+- [x] Gráfico de distribuição da carteira (pizza) por startup
+- [x] Indicadores de saldo total e total investido
+
+### 5.5 — Segurança de Acesso da Conta
+
+- [x] Autenticação multifator (MFA/2FA) de forma opcional
+- [x] Código MFA enviado por e-mail ao realizar login quando habilitado
+- [x] Validação do código com expiração (15 min)
+- [x] Toggle de MFA na tela de Perfil com feedback visual
+- [x] Senhas armazenadas com hash bcrypt no Firestore
 
 ---
 
-## ✅ Status Atual do Projeto
-
-- Tela de login e cadastro implementadas no Flutter
-- Navegação entre `/`, `/home`, `/cadastro`, `/catalogo`, `/perfil`, `/carteira` e `/startup-detalhes` funcionando
-- `HomeScreen` agora exibe cards de startups em destaque e acesso ao catálogo completo
-- `CatalogScreen` lista startups dinamicamente e aplica filtros por estágio e setor
-- `StartupDetailsScreen` mostra dados detalhados, pitch e simulador de aporte com validações de saldo
-- `PortfolioScreen` exibe carteira, histórico de aportes e permite refresh de usuário via backend
-- `ProfileScreen` exibe dados do usuário e saldo fictício, com botão de logout
-- Backend Node.js oferece rotas REST: `/api/cadastro`, `/api/login`, `/api/startups`, `/api/aporte`, `/api/usuario/:uid`
-- Firebase está inicializado no frontend via `firebase_options.dart`, mas o app atual consome dados do backend HTTP em vez de acessar o Firestore direto do cliente
-- Backend organizado em `backend/` e frontend em `frontend/`
-
-## ⚠️ Checklist de implementação conforme o documento
-
-- [x] Edição de perfil / atualização de dados do usuário no app e backend — **Concluído**
-- [x] Confirmação de logout no fluxo de perfil — **Concluído**
-- [x] Login persistente / sessão salva entre execuções do app — **Concluído**
-- [x] Vendas ou retirada de tokens do portfólio — **Concluído**
-- [x] Gráficos de desempenho, indicadores de alocação e evolução de carteira — **Concluído**
-- [~] Sincronização mais robusta de estado entre telas — **Parcial** (estado sincronizado via argumentos de rota + sessão local, sem state manager global)
-- [ ] Uso direto de Firebase Auth / Firestore no frontend — **Falta** (o app atual inicializa `firebase_core`, mas não usa `firebase_auth` nem `cloud_firestore` para fluxo direto)
-- [ ] Testes automatizados no backend e frontend — **Falta**
-
----
-
-## �🗺️ Mapa Mental de Módulos e Ações do Sistema
-
-Abaixo está o detalhamento estruturado e ramificado dos módulos do aplicativo, especificando exatamente as ações e interações disponíveis para o usuário em cada camada (Atendimento integral ao Item 2 das orientações da Profa. Renata):
+## 🗺️ Mapa Mental de Módulos e Ações do Sistema
 
 ### 🔐 1. Módulo: Autenticação & Perfil
+
 * **Criar Conta (Sign Up):**
-    * Formulário com validação de dados obrigatórios (*Nome Completo, E-mail, Telefone, CPF e Senha*).
-    * Status: implementado no `frontend/lib/screens/register_screen.dart` e no backend `/api/cadastro`.
-* **Efetuar Login (Sign In):**
-    * Autenticação por credenciais para acesso seguro do investidor simulado.
-    * Status: implementado no `frontend/lib/screens/login_screen.dart` e no backend `/api/login`.
+    * Formulário com validação de: Nome Completo, E-mail, Telefone, CPF e Senha.
+    * Status: ✅ implementado em `frontend/lib/screens/register_screen.dart` e rota `POST /api/cadastro`.
+
+* **Efetuar Login:**
+    * Autenticação por e-mail e senha; suporte a fluxo MFA quando habilitado pelo usuário.
+    * Status: ✅ implementado em `frontend/lib/screens/login_screen.dart` e rota `POST /api/login`.
+
+* **Recuperação de Senha:**
+    * Fluxo em 3 etapas com indicador de progresso: e-mail → código de verificação (6 dígitos) → nova senha.
+    * Código enviado via Nodemailer (Gmail SMTP), válido por 15 minutos.
+    * Status: ✅ implementado em `frontend/lib/screens/forgot_password_screen.dart` e rotas `POST /api/esqueci-senha`, `POST /api/resetar-senha`.
+
+* **Sessão Persistente:**
+    * Dados do usuário salvos localmente via `shared_preferences`; verificados e atualizados na abertura do app.
+    * Status: ✅ implementado em `frontend/lib/screens/splash_screen.dart` + `frontend/lib/services/session_service.dart`.
+
 * **Gerenciar Perfil:**
-    * Visualização de informações cadastrais básicas.
-    * Consulta ao saldo fictício inicial em carteira disponível para realizar os aportes nas startups do catálogo.
-    * Status: a visualização está implementada em `frontend/lib/screens/profile_screen.dart`, mas não há edição de perfil nem persistência de sessão.
+    * Visualização e edição de nome, e-mail, CPF e telefone.
+    * Consulta ao saldo fictício disponível.
+    * Toggle de MFA com indicador visual de status.
+    * Logout com confirmação.
+    * Status: ✅ implementado em `frontend/lib/screens/profile_screen.dart` e rota `PATCH /api/usuario/:uid`.
 
-### 🏢 2. Módulo: Catálogo de Startups (Base de Dados)
+* **Autenticação Multifator (MFA/2FA):**
+    * Envio de código numérico por e-mail durante o login quando MFA está ativo.
+    * Toggle habilitado/desabilitado pelo próprio usuário na tela de perfil.
+    * Status: ✅ implementado em `frontend/lib/screens/login_screen.dart` e rotas `POST /api/mfa/verificar-login`, `PATCH /api/mfa/toggle`.
+
+### 🏢 2. Módulo: Catálogo de Startups
+
+* **Dashboard Principal (Home):**
+    * Exibição de cards de startups em destaque e acesso rápido ao catálogo completo.
+    * Status: ✅ implementado em `frontend/lib/screens/home_screen.dart`.
+
 * **Listar Startups:**
-    * Exibição dinâmica das empresas parceiras através de cards com informações resumidas na home.
-    * Filtros avançados para refinamento da busca por *Estágio de Maturação* (Ideação, Validação, Operação, Tração) e *Setor de Atuação* (Fintech, Edtech, Agrotech, Cleantech, etc.).
-    * Status: implementado em `frontend/lib/screens/catalog_screen.dart` e com cards destacados na home (`frontend/lib/screens/home_screen.dart`).
+    * Cards com nome, estágio (com acentuação correta), setor e valor do token.
+    * Filtros por estágio de maturidade e por setor de atuação.
+    * Status: ✅ implementado em `frontend/lib/screens/catalog_screen.dart` e rota `GET /api/startups`.
+
 * **Visualizar Detalhes da Startup:**
-    * Acesso à descrição completa da tese de mercado da empresa.
-    * Consulta de dados transparentes de governança (*Sócios Fundadores* e *Mentores/Corpo Técnico de Conselho*).
-    * Visualização completa do histórico financeiro simulado (*Capital já aportado acumulado* e *Volume total de tokens emitidos*).
-    * Status: implementado em `frontend/lib/screens/startup_details_screen.dart`.
-* **Assistir Pitch:**
-    * Redirecionamento ou acesso direto ao link do vídeo demonstrativo/pitch de vendas da startup selecionada.
-    * Status: implementado no botão "Assistir Pitch" em `startup_details_screen.dart`.
+    * Descrição completa, setor, estágio, capital aportado e total de tokens emitidos.
+    * Estrutura societária: sócios fundadores com participação percentual.
+    * Mentores e corpo de conselho.
+    * Link para vídeo de pitch com redirecionamento externo.
+    * Indicação se o usuário já é investidor (exibe tokens em posse).
+    * Status: ✅ implementado em `frontend/lib/screens/startup_details_screen.dart`.
 
-### 📊 3. Módulo: Simulador de Investimentos (Aportes)
-* **Simular Aporte Financeiro:**
-    * Campo de inserção de valor monetário simulado (R$) destinado à startup desejada.
-    * Validação em tempo real para impedir aportes maiores do que o saldo atual da carteira. 
-    * Status: implementado em `frontend/lib/screens/startup_details_screen.dart`.
-* **Calcular Proporcionalidade de Ativos:**
-    * Processamento síncrono da quantidade estimada de tokens que o usuário receberá com base no valor aportado e na participação societária correspondente.
-    * Status: implementado com cálculo de tokens em `startup_details_screen.dart`.
-* **Confirmar Transação Fictícia:**
-    * Processo de débito automático do valor investido no saldo geral da carteira virtual do usuário.
-    * Atualização imediata e inclusão automática da startup no portfólio pessoal de ativos simulados do investidor.
-    * Status: implementado via `POST /api/aporte` no backend e atualização de usuário na tela de detalhes.
+* **Perguntas e Respostas Públicas:**
+    * Usuários enviam perguntas pelo app (públicas ou privadas para investidores).
+    * Respostas adicionadas pelo administrador diretamente no Firestore (`coleção perguntas`).
+    * Status: ✅ implementado em `frontend/lib/screens/startup_details_screen.dart` e coleção `perguntas` no Firestore.
 
---- 
+### 📊 3. Módulo: Simulador de Investimentos — Balcão de Tokens
 
-## 📂 Estrutura de Arquivos de Dados do Repositório
+* **Simular e Confirmar Aporte:**
+    * Campo de valor em R$ com validação em tempo real do saldo disponível.
+    * Cálculo proporcional de tokens (valor aportado ÷ preço unitário do token).
+    * Resultado da simulação exibido como card antes da confirmação.
+    * Confirmação com débito de saldo e atualização imediata na carteira sem necessidade de refresh.
+    * Status: ✅ implementado em `frontend/lib/screens/startup_details_screen.dart` e rota `POST /api/aporte`.
 
-* **`planilha_startups_simuladas.xlsx`**: Base de dados em formato de planilha Excel contendo o mapeamento detalhado de 8 startups de diferentes setores e estágios, fornecendo a massa de dados simulada completa que alimenta o catálogo do aplicativo.
+* **Vender Tokens:**
+    * Seleção da quantidade de tokens a vender com crédito automático do valor correspondente.
+    * Acessível tanto pelos detalhes da startup quanto pela carteira.
+    * Status: ✅ implementado em `frontend/lib/screens/startup_details_screen.dart` e `frontend/lib/screens/portfolio_screen.dart` via rota `POST /api/venda`.
+
+* **Depósito de Saldo Fictício:**
+    * Adição de saldo fictício em reais à carteira do investidor simulado.
+    * Status: ✅ implementado em `frontend/lib/screens/portfolio_screen.dart` e rota `POST /api/depositar`.
+
+### 💼 4. Módulo: Carteira do Investidor
+
+* **Visão Geral:**
+    * Saldo disponível, total investido e variação percentual do portfólio.
+    * Status: ✅ implementado em `frontend/lib/screens/portfolio_screen.dart`.
+
+* **Gráfico de Valorização:**
+    * Gráfico de linha com 5 filtros de período: 24h, 7 dias, 30 dias, 6 meses, Anual (YTD).
+    * Rótulos dinâmicos no eixo X (horas, dias da semana, meses) conforme o período.
+    * Tooltip interativo com valor formatado em R$ ao toque/hover.
+    * Status: ✅ implementado em `frontend/lib/screens/portfolio_screen.dart` com `fl_chart`.
+
+* **Distribuição da Carteira:**
+    * Gráfico de pizza com proporção de cada startup no portfólio total.
+    * Status: ✅ implementado em `frontend/lib/screens/portfolio_screen.dart`.
+
+* **Investimentos em Carteira:**
+    * Lista de startups com tokens em posse, valor investido e ação de venda direta.
+    * Status: ✅ implementado em `frontend/lib/screens/portfolio_screen.dart`.
 
 ---
 
-## 👥 Colaboradores & Autoria
-* **Docente Responsável:** Profa. Renata
-* **Equipe de Desenvolvimento:** Grupo T3-G (Engenharia de Software - PUC-Campinas)
+## 📂 Arquivos de Dados
+
+* **`planilha_startups_simuladas.xlsx`** — base de dados com 8 startups simuladas de diferentes setores e estágios de maturidade, utilizada como massa de dados do catálogo.
+
+---
+
+## 👥 Colaboradores
+
+| Nome Completo | RA | Papel |
+|--------------|-----|-------|
+| Rafael Elias Correa | 18726497 | Desenvolvimento Full Stack |
+
+* **Docente Orientador:** Prof. Me. Mateus Pereira Dias
+* **Disciplina:** Projeto Integrador 3 — Engenharia de Software — PUC-Campinas — 2026

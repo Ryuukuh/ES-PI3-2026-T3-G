@@ -1,5 +1,5 @@
 // PROJETO INTEGRADOR 3 - MESCLAINVEST
-// Autor Principal: Rafael Elias Correa
+// Autor Principal: Rafael Elias Correa | RA: 18726497
 // Componente: Tela de Recuperação de Senha
 
 import 'package:flutter/material.dart';

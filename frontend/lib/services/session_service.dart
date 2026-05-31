@@ -1,3 +1,7 @@
+// PROJETO INTEGRADOR 3 - MESCLAINVEST
+// Autor Principal: Rafael Elias Correa | RA: 18726497
+// Componente: SessionService — gerenciamento de sessão local via shared_preferences
+
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';

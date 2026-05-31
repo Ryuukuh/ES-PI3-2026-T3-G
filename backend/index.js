@@ -1,6 +1,6 @@
 /**
  * PROJETO INTEGRADOR 3 - MESCLAINVEST
- * Autor Principal: Rafael Elias Correa
+ * Autor Principal: Rafael Elias Correa | RA: 18726497
  * Componente: Backend - API REST completa
  */
 

@@ -1,3 +1,7 @@
+// PROJETO INTEGRADOR 3 - MESCLAINVEST
+// Autor Principal: Rafael Elias Correa | RA: 18726497
+// Componente: Ponto de entrada do aplicativo e configuração de rotas
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';

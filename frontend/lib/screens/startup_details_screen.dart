@@ -1,5 +1,5 @@
 // PROJETO INTEGRADOR 3 - MESCLAINVEST
-// Autor Principal: Rafael Elias Correa
+// Autor Principal: Rafael Elias Correa | RA: 18726497
 // Componente: Tela de Detalhes da Startup com sócios, Q&A e simulador
 
 import 'package:flutter/material.dart';

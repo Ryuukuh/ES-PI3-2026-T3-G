@@ -1,3 +1,7 @@
+// PROJETO INTEGRADOR 3 - MESCLAINVEST
+// Autor Principal: Rafael Elias Correa | RA: 18726497
+// Componente: Tela de Cadastro de novo usuário
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // IMPORT NECESSÁRIO PARA OS FORMATADORES
 import 'package:http/http.dart' as http;

@@ -1,3 +1,7 @@
+// PROJETO INTEGRADOR 3 - MESCLAINVEST
+// Autor Principal: Rafael Elias Correa | RA: 18726497
+// Componente: Tela de Catálogo de Startups com filtros por estágio e setor
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';

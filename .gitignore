@@ -123,6 +123,10 @@ node_modules/
 dist/
 .env
 
+# --- ARQUIVOS DE TESTE / TEMPORÁRIOS ---
+signup.json
+*.test.json
+
 # --- CONFIGURAÇÕES GERAIS DE IDE ---
 .vscode/
 .idea/

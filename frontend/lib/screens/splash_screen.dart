@@ -1,3 +1,7 @@
+// PROJETO INTEGRADOR 3 - MESCLAINVEST
+// Autor Principal: Rafael Elias Correa | RA: 18726497
+// Componente: SplashScreen — verificador de sessão persistente
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
