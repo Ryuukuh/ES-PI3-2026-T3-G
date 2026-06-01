@@ -54,14 +54,15 @@ app.use(express.json());
 
 // Middleware de log: registra no terminal cada requisição recebida
 // Ajuda a monitorar o que está acontecendo durante o desenvolvimento
+const SENSITIVE_FIELDS = ['senha', 'password', 'novaSenha', 'senhaAtual', 'token', 'codigoMFA'];
+
 app.use((req, res, next) => {
-  // Exibe o método HTTP (GET, POST, etc.), a data/hora e a rota acessada
   console.log(`📥 [${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
-  // Para requisições que enviam dados (não GET), exibe o corpo da requisição
-  if (req.method !== 'GET') {
-    console.log('     Payload:', JSON.stringify(req.body));
+  if (req.method !== 'GET' && req.body && Object.keys(req.body).length > 0) {
+    const safe = { ...req.body };
+    SENSITIVE_FIELDS.forEach(f => { if (f in safe) safe[f] = '***'; });
+    console.log('     Payload:', JSON.stringify(safe));
   }
-  // Chama o próximo middleware ou rota (sem isso, a requisição ficaria parada aqui)
   next();
 });
 
@@ -657,8 +658,8 @@ app.post('/api/aporte', async (req, res) => {
 
     const usuarioData = usuarioSnapshot.data();
     const saldoAtual = Number(usuarioData.saldoFicticio || 0);
-    const valorAporte = Number(amount);
-    const quantidadeTokens = Number(tokensQuantity);
+    const quantidadeTokens = Math.floor(Number(tokensQuantity)); // sempre inteiro
+    const valorAporte = quantidadeTokens * Number(tokenPrice);   // recalcula custo exato
 
     // Impede aporte se o usuário não tem saldo suficiente
     if (valorAporte > saldoAtual) {
@@ -749,42 +750,44 @@ app.post('/api/venda', async (req, res) => {
       return res.status(400).json({ error: 'Nenhum token disponível para venda nesta startup.' });
     }
 
-    const quantidadeAtual = Number(investimentoExistente.tokens || 0);
-    const quantidadeVenda = Number(tokenQuantity);
+    const quantidadeAtual = Math.floor(Number(investimentoExistente.tokens || 0));
+    const quantidadeVenda = Math.floor(Number(tokenQuantity)); // sempre inteiro
 
-    // Valida a quantidade: deve ser positiva e não ultrapassar o que o usuário tem
-    if (quantidadeVenda <= 0 || quantidadeVenda > quantidadeAtual) {
+    // Valida a quantidade: deve ser positiva e não ultrapassar o que o usuário tem.
+    // Tolerância de 0.0001 evita rejeição por imprecisão de ponto flutuante
+    // (ex: token calculado como 0.6666... mas exibido/digitado como 0.67).
+    const EPSILON = 0.0001;
+    if (quantidadeVenda <= 0 || quantidadeVenda > quantidadeAtual + EPSILON) {
       return res.status(400).json({ error: 'Quantidade de tokens inválida para venda.' });
     }
+    // Limita a quantidade vendida ao máximo real (evita saldo negativo de tokens)
+    const quantidadeVendaEfetiva = Math.min(quantidadeVenda, quantidadeAtual);
 
     // Calcula o valor recebido pela venda (preço unitário × quantidade vendida)
     const precoToken = Number(investimentoExistente.tokenPrice || 0);
-    const valorVenda = precoToken * quantidadeVenda;
-    const novoSaldo = Number(usuarioData.saldoFicticio || 0) + valorVenda; // Credita no saldo
-    const novoQuantidade = quantidadeAtual - quantidadeVenda; // Tokens restantes
+    const valorVenda = precoToken * quantidadeVendaEfetiva;
+    const novoSaldo = Number(usuarioData.saldoFicticio || 0) + valorVenda;
+    const novoQuantidade = quantidadeAtual - quantidadeVendaEfetiva;
 
-    // Atualiza os dados do investimento na startup
     const novoInvestimento = {
       ...investimentoExistente,
-      valor: Number(investimentoExistente.valor || 0) - valorVenda, // Subtrai valor vendido
+      valor: Math.max(0, Number(investimentoExistente.valor || 0) - valorVenda),
       tokens: novoQuantidade,
       updatedAt: new Date().toLocaleString('pt-BR'),
     };
 
-    // Atualiza a carteira: se vendeu todos os tokens, remove a entrada; senão atualiza
     const novoTokens = { ...tokensAtuais };
-    if (novoQuantidade > 0) {
-      novoTokens[tokenKey] = novoInvestimento; // Ainda tem tokens: atualiza
+    if (novoQuantidade > EPSILON) {
+      novoTokens[tokenKey] = novoInvestimento;
     } else {
-      delete novoTokens[tokenKey]; // Vendeu tudo: remove da carteira
+      delete novoTokens[tokenKey]; // Remove quando zerado (inclui casos de floating point residual)
     }
 
-    // Registra a venda no histórico de transações
     const vendaEntry = {
       uid, startupId,
       startupNome: investimentoExistente.startupNome || 'Startup',
       amount: valorVenda, tokenPrice: precoToken,
-      tokensQuantity: quantidadeVenda,
+      tokensQuantity: quantidadeVendaEfetiva,
       tipo: 'venda',
       createdAt: new Date().toLocaleString('pt-BR'),
     };

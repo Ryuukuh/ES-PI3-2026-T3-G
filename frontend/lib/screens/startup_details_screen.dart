@@ -38,14 +38,13 @@ class StartupDetailsScreen extends StatefulWidget {
 }
 
 class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
-  // Controlador do campo de valor do aporte (ex: "1500,00")
+  // Controlador do campo de quantidade de tokens (número inteiro)
   final _amountController = TextEditingController();
 
   // Controlador do campo de texto da pergunta no Q&A
   final _perguntaController = TextEditingController();
 
-  double _simulatedTokens = 0.0;         // Quantidade de tokens calculada na simulação
-  String _simulationMessage = '';         // Mensagem exibida após simular (ex: "Você receberá X tokens")
+  String _simulationMessage = '';         // Mensagem exibida após simular
   double _walletBalance = 10000.0;        // Saldo disponível do usuário
   Map<String, dynamic> _userData = {};    // Dados completos do usuário logado
   Map<String, dynamic> _startupData = {}; // Dados da startup sendo visualizada
@@ -324,44 +323,55 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
-  // Calcula quantos tokens o usuário receberia com o valor informado.
-  // Fórmula: tokens = valor aportado ÷ preço unitário do token
   Future<void> _simulateInvestment(double tokenPrice) async {
-    // Remove caracteres não numéricos (exceto vírgula e ponto) do campo
-    final text = _amountController.text.replaceAll(RegExp(r'[^0-9,\.]'), '');
-    final amount = double.tryParse(text.replaceAll(',', '.')) ?? 0.0;
+    final tokenCount = int.tryParse(_amountController.text.trim()) ?? 0;
 
-    // Validações antes de calcular
-    if (amount <= 0) {
-      setState(() { _simulatedTokens = 0.0; _simulationMessage = 'Informe um valor válido.'; });
-      return;
-    }
-    if (amount > _walletBalance) {
-      setState(() { _simulatedTokens = 0.0; _simulationMessage = 'Valor superior ao saldo disponível.'; });
+    if (tokenCount <= 0) {
+      setState(() => _simulationMessage = 'Informe uma quantidade válida de tokens.');
       return;
     }
     if (tokenPrice <= 0) {
-      setState(() { _simulatedTokens = 0.0; _simulationMessage = 'Preço de token não disponível.'; });
+      setState(() => _simulationMessage = 'Preço de token não disponível.');
       return;
     }
 
-    // Cálculo da quantidade de tokens
+    final actualCost = tokenCount * tokenPrice;
+
+    if (actualCost > _walletBalance) {
+      setState(() => _simulationMessage = 'Saldo insuficiente (custo: ${_formatCurrency(actualCost)}).');
+      return;
+    }
+
     setState(() {
-      _simulatedTokens = amount / tokenPrice;
-      _simulationMessage = 'Com ${_formatCurrency(amount)} você pode adquirir ${_simulatedTokens.toStringAsFixed(2)} tokens.';
+      _simulationMessage =
+          '$tokenCount token${tokenCount > 1 ? 's' : ''} '
+          'por ${_formatCurrency(actualCost)}.';
     });
   }
 
   // Confirma e registra o aporte no backend.
   // Debita o valor do saldo, adiciona os tokens à carteira e salva tudo.
   Future<void> _confirmInvestment(double tokenPrice) async {
-    final text = _amountController.text.replaceAll(RegExp(r'[^0-9,\.]'), '');
-    final amount = double.tryParse(text.replaceAll(',', '.')) ?? 0.0;
+    final tokenCount = int.tryParse(_amountController.text.trim()) ?? 0;
 
-    // Validações finais antes de confirmar
-    if (amount <= 0 || amount > _walletBalance || tokenPrice <= 0) {
+    if (tokenPrice <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Confirme os dados antes de finalizar o aporte.'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('Preço de token indisponível.'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    final actualCost = tokenCount * tokenPrice;
+
+    if (tokenCount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Informe quantos tokens deseja comprar (mínimo 1).'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (actualCost > _walletBalance) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Saldo insuficiente.'), backgroundColor: Colors.red),
       );
       return;
     }
@@ -374,12 +384,9 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
       return;
     }
 
-    // ID da startup para vincular o aporte
     final startupId = _getFirstNonEmptyField(_startupData, ['id', 'uid', 'startupId'], _startupData['nome']?.toString() ?? 'startup');
-    final amountTokens = amount / tokenPrice; // Quantidade de tokens a receber
 
     try {
-      // Envia o aporte ao backend com todos os dados necessários
       final response = await http.post(
         Uri.parse('http://localhost:3000/api/aporte'),
         headers: {'Content-Type': 'application/json'},
@@ -387,9 +394,9 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
           'uid': uid,
           'startupId': startupId,
           'startupNome': _startupData['nome_startup'] ?? _startupData['nome'] ?? 'Startup',
-          'amount': amount,
+          'amount': actualCost,       // cobra apenas o custo exato dos tokens inteiros
           'tokenPrice': tokenPrice,
-          'tokensQuantity': amountTokens,
+          'tokensQuantity': tokenCount,
         }),
       );
 
@@ -397,12 +404,10 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        // Atualiza o saldo e tokens localmente com os dados retornados pelo servidor
-        final newBalance = double.tryParse(body['saldoFicticio']?.toString() ?? '') ?? (_walletBalance - amount);
+        final newBalance = double.tryParse(body['saldoFicticio']?.toString() ?? '') ?? (_walletBalance - actualCost);
         setState(() {
           _walletBalance = newBalance;
           _amountController.clear();
-          _simulatedTokens = 0.0;
           _simulationMessage = 'Aporte realizado! Saldo atualizado.';
         });
         _userData['saldoFicticio'] = newBalance;
@@ -411,7 +416,7 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Aporte de ${_formatCurrency(amount)} confirmado!'), backgroundColor: AppColors.primary),
+          SnackBar(content: Text('$tokenCount token${tokenCount > 1 ? 's' : ''} adquirido${tokenCount > 1 ? 's' : ''} por ${_formatCurrency(actualCost)}!'), backgroundColor: AppColors.primary),
         );
 
         // Retorna os dados atualizados para a tela anterior (catálogo ou home)
@@ -633,18 +638,18 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Campo para o usuário digitar o valor que quer investir
+                  // Campo para o usuário digitar a quantidade inteira de tokens
                   TextFormField(
                     controller: _amountController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Valor do aporte',
-                      hintText: 'Ex: 1500,00',
-                      prefixText: 'R\$ ',
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Quantidade de tokens',
+                      hintText: tokenPrice > 0 ? 'Ex: 5  (cada token = ${_formatCurrency(tokenPrice)})' : 'Ex: 5',
+                      suffixText: 'tokens',
                     ),
                   ),
                   const SizedBox(height: 6),
-                  // Exibe o saldo disponível abaixo do campo como referência
+                  // Saldo disponível e custo unitário como referência
                   Align(
                     alignment: Alignment.centerRight,
                     child: Text(
@@ -654,7 +659,7 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Botão para calcular a simulação (não confirma ainda)
+                  // Botão para calcular o custo total antes de confirmar
                   ElevatedButton.icon(
                     onPressed: () => _simulateInvestment(tokenPrice),
                     style: ElevatedButton.styleFrom(
@@ -663,7 +668,7 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     icon: const Icon(Icons.calculate_outlined, color: Colors.white),
-                    label: const Text('Simular aporte', style: TextStyle(color: Colors.white, fontSize: 15)),
+                    label: const Text('Calcular custo', style: TextStyle(color: Colors.white, fontSize: 15)),
                   ),
 
                   // Card com o resultado da simulação — aparece após calcular
