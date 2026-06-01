@@ -1,14 +1,35 @@
 // PROJETO INTEGRADOR 3 - MESCLAINVEST
 // Autor Principal: Rafael Elias Correa | RA: 18726497
 // Componente: Tela de Detalhes da Startup com sócios, Q&A e simulador
+//
+// Esta tela exibe todas as informações de uma startup específica:
+//   - Nome, estágio, descrição, setor e link de pitch
+//   - Detalhes financeiros: capital aportado, tokens emitidos, preço do token
+//   - Estrutura societária: sócios e participações percentuais
+//   - Governança: mentores e conselho
+//   - Q&A: perguntas públicas e privadas dos investidores
+//   - Simulador de aporte: calcula quantos tokens o usuário receberá
+//   - Confirmação de compra de tokens com débito de saldo
 
+// Importa o kit de widgets visuais do Flutter
 import 'package:flutter/material.dart';
+
+// Importa o pacote HTTP para se comunicar com o backend
 import 'package:http/http.dart' as http;
+
+// Importa ferramentas para codificar/decodificar JSON
 import 'dart:convert';
+
+// Importa o pacote para abrir links externos (URL do pitch) no navegador do celular
 import 'package:url_launcher/url_launcher.dart';
+
+// Importa o serviço de sessão para salvar dados atualizados do usuário
 import '../services/session_service.dart';
+
+// Importa as cores do tema do projeto
 import '../theme/app_colors.dart';
 
+// StatefulWidget porque os dados do simulador, Q&A e saldo mudam dinamicamente
 class StartupDetailsScreen extends StatefulWidget {
   const StartupDetailsScreen({super.key});
 
@@ -17,30 +38,39 @@ class StartupDetailsScreen extends StatefulWidget {
 }
 
 class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
+  // Controlador do campo de valor do aporte (ex: "1500,00")
   final _amountController = TextEditingController();
+
+  // Controlador do campo de texto da pergunta no Q&A
   final _perguntaController = TextEditingController();
 
-  double _simulatedTokens = 0.0;
-  String _simulationMessage = '';
-  double _walletBalance = 10000.0;
-  Map<String, dynamic> _userData = {};
-  Map<String, dynamic> _startupData = {};
+  double _simulatedTokens = 0.0;         // Quantidade de tokens calculada na simulação
+  String _simulationMessage = '';         // Mensagem exibida após simular (ex: "Você receberá X tokens")
+  double _walletBalance = 10000.0;        // Saldo disponível do usuário
+  Map<String, dynamic> _userData = {};    // Dados completos do usuário logado
+  Map<String, dynamic> _startupData = {}; // Dados da startup sendo visualizada
 
-  List<Map<String, dynamic>> _perguntas = [];
-  bool _loadingPerguntas = false;
-  bool _perguntaPrivada = false;
-  bool _initialized = false;
+  List<Map<String, dynamic>> _perguntas = []; // Lista de perguntas e respostas da startup
+  bool _loadingPerguntas = false;             // Controla spinner ao carregar Q&A
+  bool _perguntaPrivada = false;              // Define se a pergunta será pública ou privada
+  bool _initialized = false;                  // Garante inicialização única
 
+  // didChangeDependencies: lê os argumentos de navegação e inicializa os dados.
+  // Chamado depois que o widget tem acesso ao contexto de rota.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_initialized) return;
+    if (_initialized) return; // Executa apenas na primeira vez
     _initialized = true;
 
+    // Lê os argumentos passados pelo catálogo ou home
+    // Formato esperado: { 'startup': {...}, 'user': {...} }
     final arguments = ModalRoute.of(context)?.settings.arguments;
     if (arguments is Map) {
       _startupData = Map<String, dynamic>.from(arguments['startup'] ?? arguments);
       _userData = Map<String, dynamic>.from(arguments['user'] ?? {});
+
+      // Extrai e converte o saldo do usuário para double de forma segura
       final saldo = _userData['saldoFicticio'];
       if (saldo is String) {
         _walletBalance = double.tryParse(saldo.replaceAll(',', '.')) ?? _walletBalance;
@@ -49,9 +79,11 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
       }
     }
 
+    // Carrega as perguntas após o frame ser renderizado (evita setState durante build)
     WidgetsBinding.instance.addPostFrameCallback((_) => _carregarPerguntas());
   }
 
+  // Libera os controladores de texto da memória ao fechar a tela
   @override
   void dispose() {
     _amountController.dispose();
@@ -59,6 +91,8 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
     super.dispose();
   }
 
+  // Converte o valor bruto do estágio (sem acento) para o nome correto com acentuação.
+  // O Firestore guarda 'ideacao', mas exibimos 'Ideação'.
   String _displayStage(String raw) {
     const map = {
       'ideacao': 'Ideação',
@@ -69,6 +103,8 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
     return map[raw.toLowerCase().trim()] ?? raw;
   }
 
+  // Busca o primeiro campo numérico não-nulo de uma lista de candidatos.
+  // Necessário porque diferentes startups podem usar nomes de campo diferentes.
   double _getFirstNumericField(dynamic item, List<String> keys, double fallback) {
     if (item is Map) {
       for (final key in keys) {
@@ -82,6 +118,7 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
     return fallback;
   }
 
+  // Busca o primeiro campo de texto não-vazio de uma lista de candidatos.
   String _getFirstNonEmptyField(dynamic item, List<String> keys, String fallback) {
     if (item is Map) {
       for (final key in keys) {
@@ -94,38 +131,49 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
     return fallback;
   }
 
+  // Calcula o preço unitário de um token da startup.
+  // Tenta campos explícitos; se não encontrar, calcula como capital ÷ tokens emitidos.
   double _inferTokenPrice(dynamic startup) {
     final explicitPrice = _getFirstNumericField(startup, ['precoToken', 'valorToken', 'preco', 'valor'], 0.0);
     if (explicitPrice > 0) return explicitPrice;
+
+    // Calcula: preço unitário = capital total aportado ÷ total de tokens emitidos
     final capital = _getFirstNumericField(startup, ['capital_aportado', 'capitalAportado', 'capital'], 0.0);
     final tokens = _getFirstNumericField(startup, ['tokens_emitidos', 'tokensEmitidos', 'tokens'], 0.0);
     if (capital > 0 && tokens > 0) return capital / tokens;
     return 0.0;
   }
 
+  // Formata um valor double como moeda brasileira: R$ 1.234,56
   String _formatCurrency(double value) =>
       'R\$ ${value.toStringAsFixed(2).replaceAll('.', ',')}';
 
+  // Extrai a URL do vídeo de pitch da startup, tentando vários nomes de campo.
   String _extractPitchUrl(dynamic startup) =>
       _getFirstNonEmptyField(startup, ['pitchUrl', 'videoUrl', 'linkPitch', 'pitch_link', 'video_demo', 'url'], '');
 
+  // Verifica se o usuário já é investidor desta startup (possui tokens dela na carteira).
+  // Usado para determinar se pode enviar perguntas privadas.
   bool _ehInvestidor() {
     final tokens = _userData['tokens'];
     if (tokens is Map && tokens.isNotEmpty) {
       final startupId = _getFirstNonEmptyField(_startupData, ['id', 'uid', 'startupId'], '');
-      return tokens.containsKey(startupId);
+      return tokens.containsKey(startupId); // Verifica se a startup está na carteira
     }
     return false;
   }
 
+  // Busca as perguntas e respostas desta startup no backend.
+  // Retorna perguntas públicas + privadas do próprio usuário.
   Future<void> _carregarPerguntas() async {
     final startupId = _getFirstNonEmptyField(_startupData, ['id', 'uid', 'startupId'], '');
-    if (startupId.isEmpty) return;
+    if (startupId.isEmpty) return; // Sem ID da startup não conseguimos buscar
 
     setState(() => _loadingPerguntas = true);
 
     try {
       final uid = _userData['uid']?.toString() ?? '';
+      // Inclui o UID na URL para receber também as perguntas privadas do usuário
       final url = Uri.parse(
           'http://localhost:3000/api/perguntas/$startupId${uid.isNotEmpty ? '?uid=$uid' : ''}');
       final response = await http.get(url);
@@ -135,18 +183,22 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         setState(() {
+          // Converte cada item da lista para Map<String, dynamic>
           _perguntas = data.map((e) => Map<String, dynamic>.from(e)).toList();
         });
       }
     } catch (_) {
-      // silencioso — perguntas não críticas
+      // Falha silenciosa — Q&A não é funcionalidade crítica para o fluxo principal
     } finally {
       if (mounted) setState(() => _loadingPerguntas = false);
     }
   }
 
+  // Envia uma nova pergunta ao backend e atualiza a lista de Q&A.
   Future<void> _enviarPergunta() async {
     final pergunta = _perguntaController.text.trim();
+
+    // Validação mínima: pergunta deve ter pelo menos 5 caracteres
     if (pergunta.length < 5) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('A pergunta deve ter pelo menos 5 caracteres.'), backgroundColor: Colors.red),
@@ -165,6 +217,7 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
     final startupId = _getFirstNonEmptyField(_startupData, ['id', 'uid', 'startupId'], '');
 
     try {
+      // Envia a pergunta com tipo (pública ou privada) para o backend
       final response = await http.post(
         Uri.parse('http://localhost:3000/api/perguntas'),
         headers: {'Content-Type': 'application/json'},
@@ -172,19 +225,19 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
           'uid': uid,
           'startupId': startupId,
           'pergunta': pergunta,
-          'tipo': _perguntaPrivada ? 'privada' : 'publica',
+          'tipo': _perguntaPrivada ? 'privada' : 'publica', // Define visibilidade
         }),
       );
 
       if (!mounted) return;
 
       if (response.statusCode == 201) {
-        _perguntaController.clear();
-        Navigator.of(context).pop();
+        _perguntaController.clear();     // Limpa o campo de texto
+        Navigator.of(context).pop();     // Fecha o diálogo
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Pergunta enviada com sucesso!'), backgroundColor: Colors.green),
         );
-        await _carregarPerguntas();
+        await _carregarPerguntas(); // Recarrega as perguntas para exibir a nova
       } else {
         final body = jsonDecode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -199,10 +252,13 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
     }
   }
 
+  // Abre o diálogo para o usuário escrever e enviar uma pergunta.
+  // Usuários que já são investidores podem escolher entre pergunta pública ou privada.
   void _abrirDialogPergunta() {
-    _perguntaPrivada = false;
+    _perguntaPrivada = false; // Reset para público por padrão
     showDialog(
       context: context,
+      // StatefulBuilder permite que o conteúdo interno do diálogo reaja a mudanças de estado
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: const Text('Enviar pergunta'),
@@ -210,6 +266,7 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Campo de texto para digitar a pergunta
               TextField(
                 controller: _perguntaController,
                 maxLines: 3,
@@ -219,11 +276,13 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+              // Opção de pergunta privada — aparece apenas para investidores
               if (_ehInvestidor())
                 Row(
                   children: [
                     Checkbox(
                       value: _perguntaPrivada,
+                      // setDialogState atualiza o estado DENTRO do diálogo
                       onChanged: (v) => setDialogState(() => _perguntaPrivada = v ?? false),
                     ),
                     const Expanded(child: Text('Pergunta privada (só você vê)', style: TextStyle(fontSize: 13))),
@@ -250,8 +309,10 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
     );
   }
 
+  // Abre a URL do vídeo de pitch no navegador padrão do dispositivo.
   Future<void> _launchPitch(String url) async {
     final uri = Uri.tryParse(url);
+    // canLaunchUrl verifica se o dispositivo consegue abrir essa URL
     if (uri == null || !await canLaunchUrl(uri)) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -259,12 +320,18 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
       );
       return;
     }
+    // Abre no navegador externo (não dentro do app)
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  // Calcula quantos tokens o usuário receberia com o valor informado.
+  // Fórmula: tokens = valor aportado ÷ preço unitário do token
   Future<void> _simulateInvestment(double tokenPrice) async {
+    // Remove caracteres não numéricos (exceto vírgula e ponto) do campo
     final text = _amountController.text.replaceAll(RegExp(r'[^0-9,\.]'), '');
     final amount = double.tryParse(text.replaceAll(',', '.')) ?? 0.0;
+
+    // Validações antes de calcular
     if (amount <= 0) {
       setState(() { _simulatedTokens = 0.0; _simulationMessage = 'Informe um valor válido.'; });
       return;
@@ -277,15 +344,21 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
       setState(() { _simulatedTokens = 0.0; _simulationMessage = 'Preço de token não disponível.'; });
       return;
     }
+
+    // Cálculo da quantidade de tokens
     setState(() {
       _simulatedTokens = amount / tokenPrice;
       _simulationMessage = 'Com ${_formatCurrency(amount)} você pode adquirir ${_simulatedTokens.toStringAsFixed(2)} tokens.';
     });
   }
 
+  // Confirma e registra o aporte no backend.
+  // Debita o valor do saldo, adiciona os tokens à carteira e salva tudo.
   Future<void> _confirmInvestment(double tokenPrice) async {
     final text = _amountController.text.replaceAll(RegExp(r'[^0-9,\.]'), '');
     final amount = double.tryParse(text.replaceAll(',', '.')) ?? 0.0;
+
+    // Validações finais antes de confirmar
     if (amount <= 0 || amount > _walletBalance || tokenPrice <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Confirme os dados antes de finalizar o aporte.'), backgroundColor: Colors.red),
@@ -301,10 +374,12 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
       return;
     }
 
+    // ID da startup para vincular o aporte
     final startupId = _getFirstNonEmptyField(_startupData, ['id', 'uid', 'startupId'], _startupData['nome']?.toString() ?? 'startup');
-    final amountTokens = amount / tokenPrice;
+    final amountTokens = amount / tokenPrice; // Quantidade de tokens a receber
 
     try {
+      // Envia o aporte ao backend com todos os dados necessários
       final response = await http.post(
         Uri.parse('http://localhost:3000/api/aporte'),
         headers: {'Content-Type': 'application/json'},
@@ -320,7 +395,9 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
 
       if (!mounted) return;
       final body = jsonDecode(response.body);
+
       if (response.statusCode == 200) {
+        // Atualiza o saldo e tokens localmente com os dados retornados pelo servidor
         final newBalance = double.tryParse(body['saldoFicticio']?.toString() ?? '') ?? (_walletBalance - amount);
         setState(() {
           _walletBalance = newBalance;
@@ -330,12 +407,15 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
         });
         _userData['saldoFicticio'] = newBalance;
         _userData['tokens'] = body['tokens'] ?? _userData['tokens'] ?? {};
-        await SessionService.saveUser(_userData);
+        await SessionService.saveUser(_userData); // Persiste localmente
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Aporte de ${_formatCurrency(amount)} confirmado!'), backgroundColor: AppColors.primary),
         );
+
+        // Retorna os dados atualizados para a tela anterior (catálogo ou home)
+        // A tela anterior usa esses dados para atualizar o saldo exibido sem refresh
         Navigator.pop(context, {'user': _userData});
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -352,6 +432,7 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Extrai todos os dados da startup para exibição na interface
     final startupName = _getFirstNonEmptyField(_startupData, ['nome_startup', 'nome', 'nomeStartup', 'name', 'titulo'], 'Startup Sem Nome');
     final stage = _displayStage(_getFirstNonEmptyField(_startupData, ['estagio', 'fase', 'stage'], ''));
     final description = _getFirstNonEmptyField(_startupData, ['descricao', 'description', 'resumo', 'sobre'], 'Descrição não disponível.');
@@ -362,7 +443,8 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
     final tokenPrice = _inferTokenPrice(_startupData);
     final pitchLink = _extractPitchUrl(_startupData);
 
-    // Sócios e participações societárias
+    // Processa a estrutura societária: divide strings separadas por ";" em listas
+    // Ex: "Ana Silva;João Costa" → ['Ana Silva', 'João Costa']
     final sociosRaw = _getFirstNonEmptyField(_startupData, ['socios', 'socios_fundadores', 'founders'], '');
     final participacaoRaw = _getFirstNonEmptyField(_startupData, ['participacao_societaria', 'participacao', 'equity'], '');
     final listaSocios = sociosRaw.split(';').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
@@ -380,7 +462,8 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Card principal
+
+            // ===== CARD PRINCIPAL: nome, estágio e descrição =====
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -391,16 +474,19 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Nome da startup em destaque
                   Text(startupName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary)),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      // Badge do estágio de desenvolvimento
                       Chip(
                         label: Text(stage),
                         backgroundColor: AppColors.primary.withAlpha(31),
                         labelStyle: const TextStyle(color: AppColors.primary),
                       ),
+                      // Preço do token (se disponível)
                       if (tokenPrice > 0)
                         Text(_formatCurrency(tokenPrice), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ],
@@ -408,13 +494,16 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
                   const SizedBox(height: 8),
                   const Text('Resumo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
+                  // Descrição completa da startup (sumário executivo)
                   Text(description, style: const TextStyle(fontSize: 15, height: 1.6)),
+
+                  // Botão de pitch — aparece apenas se o link estiver disponível
                   if (pitchLink.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: () => _launchPitch(pitchLink),
+                        onPressed: () => _launchPitch(pitchLink), // Abre no navegador externo
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
                         icon: const Icon(Icons.play_circle_outline, color: Colors.white),
                         label: const Text('Assistir Pitch', style: TextStyle(color: Colors.white)),
@@ -426,9 +515,10 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
             ),
             const SizedBox(height: 22),
 
-            // Detalhes financeiros
+            // ===== DETALHES FINANCEIROS =====
             const Text('Detalhes financeiros', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
+            // Linha com dois tiles lado a lado: Capital e Tokens emitidos
             Row(
               children: [
                 _infoTile('Capital', capital > 0 ? _formatCurrency(capital) : 'Não informado'),
@@ -437,6 +527,7 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
               ],
             ),
             const SizedBox(height: 12),
+            // Linha com Setor e Preço por token
             Row(
               children: [
                 _infoTile('Setor', sector),
@@ -446,7 +537,7 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
             ),
             const SizedBox(height: 22),
 
-            // Estrutura societária
+            // ===== ESTRUTURA SOCIETÁRIA =====
             const Text('Estrutura Societária', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Container(
@@ -459,6 +550,7 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
               ),
               child: listaSocios.isEmpty
                   ? const Text('Informação societária não disponível.', style: TextStyle(color: Colors.grey))
+                  // Lista de sócios com avatar de inicial, nome e participação
                   : Column(
                       children: List.generate(listaSocios.length, (i) {
                         final participacao = i < listaParticipacoes.length ? listaParticipacoes[i] : '—';
@@ -466,13 +558,10 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
                           padding: const EdgeInsets.only(bottom: 10),
                           child: Row(
                             children: [
+                              // Avatar circular com a inicial do nome do sócio
                               Container(
-                                width: 42,
-                                height: 42,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withAlpha(31),
-                                  shape: BoxShape.circle,
-                                ),
+                                width: 42, height: 42,
+                                decoration: BoxDecoration(color: AppColors.primary.withAlpha(31), shape: BoxShape.circle),
                                 child: Center(
                                   child: Text(
                                     listaSocios[i].isNotEmpty ? listaSocios[i][0].toUpperCase() : '?',
@@ -490,12 +579,10 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
                                   ],
                                 ),
                               ),
+                              // Badge verde com o percentual de participação
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.withAlpha(31),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
+                                decoration: BoxDecoration(color: Colors.green.withAlpha(31), borderRadius: BorderRadius.circular(20)),
                                 child: Text(participacao, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                               ),
                             ],
@@ -506,17 +593,18 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
             ),
             const SizedBox(height: 22),
 
-            // Governança e Mentoria
+            // ===== GOVERNANÇA E MENTORIA =====
             const Text('Governança e Mentoria', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            _detailCard('Mentores e Conselho', mentors),
+            _detailCard('Mentores e Conselho', mentors), // Card com lista de mentores
             const SizedBox(height: 22),
 
-            // Q&A - Perguntas e Respostas
+            // ===== PERGUNTAS E RESPOSTAS (Q&A) =====
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Perguntas e Respostas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                // Botão para abrir o diálogo de nova pergunta
                 ElevatedButton.icon(
                   onPressed: _abrirDialogPergunta,
                   style: ElevatedButton.styleFrom(
@@ -529,10 +617,10 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            _buildQaSection(),
+            _buildQaSection(), // Seção com a lista de perguntas e respostas
             const SizedBox(height: 22),
 
-            // Simulador de Investimento
+            // ===== SIMULADOR DE INVESTIMENTO =====
             Text('Simulador de Investimento', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[800])),
             const SizedBox(height: 12),
             Container(
@@ -545,6 +633,7 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Campo para o usuário digitar o valor que quer investir
                   TextFormField(
                     controller: _amountController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -555,6 +644,7 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
+                  // Exibe o saldo disponível abaixo do campo como referência
                   Align(
                     alignment: Alignment.centerRight,
                     child: Text(
@@ -563,6 +653,8 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
+
+                  // Botão para calcular a simulação (não confirma ainda)
                   ElevatedButton.icon(
                     onPressed: () => _simulateInvestment(tokenPrice),
                     style: ElevatedButton.styleFrom(
@@ -573,6 +665,8 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
                     icon: const Icon(Icons.calculate_outlined, color: Colors.white),
                     label: const Text('Simular aporte', style: TextStyle(color: Colors.white, fontSize: 15)),
                   ),
+
+                  // Card com o resultado da simulação — aparece após calcular
                   if (_simulationMessage.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Container(
@@ -593,6 +687,8 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
                     ),
                   ],
                   const SizedBox(height: 12),
+
+                  // Botão de confirmação final — verde para indicar ação definitiva
                   ElevatedButton.icon(
                     onPressed: () => _confirmInvestment(tokenPrice),
                     style: ElevatedButton.styleFrom(
@@ -613,11 +709,14 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
     );
   }
 
+  // Constrói a seção de Q&A com a lista de perguntas e respostas.
   Widget _buildQaSection() {
+    // Enquanto carrega, exibe spinner centralizado
     if (_loadingPerguntas) {
       return const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()));
     }
 
+    // Mensagem quando não há perguntas ainda
     if (_perguntas.isEmpty) {
       return Container(
         width: double.infinity,
@@ -627,25 +726,29 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
       );
     }
 
+    // Renderiza um card para cada pergunta
     return Column(
       children: _perguntas.map((p) {
-        final isPrivada = p['tipo'] == 'privada';
+        final isPrivada = p['tipo'] == 'privada'; // Identifica perguntas privadas
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
+            // Borda amarela para perguntas privadas, cinza para públicas
             border: Border.all(color: isPrivada ? Colors.amber.shade200 : Colors.grey.shade200),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Linha de cabeçalho: ícone + nome do autor + badge privado + data
               Row(
                 children: [
                   const Icon(Icons.person, size: 16, color: Colors.grey),
                   const SizedBox(width: 4),
                   Expanded(child: Text(p['nomeAutor'] ?? 'Anônimo', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                  // Badge "Privada" — aparece apenas em perguntas privadas
                   if (isPrivada)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -657,9 +760,14 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
                 ],
               ),
               const SizedBox(height: 8),
+
+              // Texto da pergunta
               Text(p['pergunta'] ?? '', style: const TextStyle(fontSize: 14)),
+
+              // Resposta — exibida apenas se existir
               if (p['resposta'] != null && p['resposta'].toString().isNotEmpty) ...[
                 const SizedBox(height: 10),
+                // Card verde com a resposta do administrador/empreendedor
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(color: Colors.green.withAlpha(15), borderRadius: BorderRadius.circular(10)),
@@ -673,6 +781,7 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
                   ),
                 ),
               ] else
+                // Texto em itálico quando a pergunta ainda não tem resposta
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text('Aguardando resposta...', style: TextStyle(color: Colors.grey[400], fontSize: 12, fontStyle: FontStyle.italic)),
@@ -684,11 +793,17 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
     );
   }
 
+  // Widget auxiliar: card de informação com título e valor (ex: "Capital" / "R$ 50.000").
+  // Usado nos detalhes financeiros — ocupa metade da linha (Expanded).
   Widget _infoTile(String title, String value) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey[200]!)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -701,11 +816,17 @@ class _StartupDetailsScreenState extends State<StartupDetailsScreen> {
     );
   }
 
+  // Widget auxiliar: card de detalhe com título e conteúdo em bloco.
+  // Usado para Mentores e Conselho (ocupa toda a largura).
   Widget _detailCard(String title, String content) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey[200]!)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -123,6 +123,9 @@ node_modules/
 dist/
 .env
 
+# --- CLAUDE CODE (configurações locais do assistente) ---
+.claude/
+
 # --- ARQUIVOS DE TESTE / TEMPORÁRIOS ---
 signup.json
 *.test.json
